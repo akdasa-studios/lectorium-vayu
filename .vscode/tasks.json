@@ -1,0 +1,12 @@
+{
+    "version": "2.0.0",
+    "tasks": [{
+        "label": "Vayu",
+        "command": "run.sh",
+        "detail": "Runs Vayu service",
+        "icon": {
+            "id":"server",
+            "color":"terminal.ansiBlue",
+        },
+    }]
+}
