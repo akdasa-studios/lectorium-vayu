@@ -1,0 +1,10 @@
+.venv
+__pycache__
+input
+.env
+.DS_Store
+airflow.db
+airflow.db-journal
+standalone_admin_password.txt
+airflow-webserver.pid
+logs/
