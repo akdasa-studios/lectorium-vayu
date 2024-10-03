@@ -1,14 +1,17 @@
 from os import environ
+
 from airflow.decorators import task
-from lectorium.services.couchdb import CouchDbService
+
 from lectorium.models import Environment
+from lectorium.services.couchdb import CouchDbService
 
 couch_db = CouchDbService(environ.get("DATABASE_URL"))
 
 
 @task(
     task_display_name="Save Search Index",
-    map_index_template="{{ task.op_kwargs['word'] }}")
+    map_index_template="{{ task.op_kwargs['word'] }}",
+)
 def save_search_index(
     track_id: str,
     word: str,

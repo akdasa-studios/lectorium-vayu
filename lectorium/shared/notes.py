@@ -8,10 +8,8 @@ def append_dag_run_note(
 ):
     session = Session()
     editable_dag_run = (
-        session
-            .query(DagRun)
-            .filter(DagRun.run_id == dag_run.run_id)
-            .one())
+        session.query(DagRun).filter(DagRun.run_id == dag_run.run_id).one()
+    )
 
     if not editable_dag_run.note:
         editable_dag_run.note = ""

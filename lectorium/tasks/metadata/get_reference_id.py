@@ -1,13 +1,14 @@
-from re import split
 from os import environ
+from re import split
+
 from airflow.decorators import task
 
 from lectorium.services import CouchDbService
 
 couch_db = CouchDbService(environ.get("DATABASE_URL"))
 
-@task(
-    task_display_name="Get Reference Id")
+
+@task(task_display_name="Get Reference Id")
 def get_reference_id(
     reference: str,
 ) -> str:
@@ -20,9 +21,8 @@ def get_reference_id(
 
     # TODO: query sources only. add filer by id: "source::"
     # query the database
-    query     = { "name.en.short": reference_source } # TODO: add other languages
-    db_record = couch_db.find_by_filter(
-        "library-dictionary-v0001", query)
+    query = {"name.en.short": reference_source}  # TODO: add other languages
+    db_record = couch_db.find_by_filter("library-dictionary-v0001", query)
     print("query: ", query)
     print("response: ", db_record)
 

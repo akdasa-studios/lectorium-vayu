@@ -1,34 +1,34 @@
-from re import findall
 from os import environ
+from re import findall
 from typing import Generator
+
 from airflow.decorators import task
+
 from lectorium.services.antropic import AntropicService
 
-
-antropic = AntropicService(
-    api_key=environ.get("ANTHROPIC_API"))
+antropic = AntropicService(api_key=environ.get("ANTHROPIC_API"))
 
 
 def get_transcript_chunk(
-  transcript: dict,
-  sentences: int
+    transcript: dict, sentences: int
 ) -> Generator[str, None, None]:
-  result = ""
-  sentences_added = 0
-  for idx, block in enumerate(transcript):
-    if block["type"] == "sentence": #isinstance(block, TranscriptSentenceBlock):
-      result += f"{{{idx}}} {block['text']} "
-      sentences_added += 1
-    if sentences_added >= sentences:
-      yield result, sentences_added
-      sentences_added = 0
-      result = ""
-  yield result, sentences_added
+    result = ""
+    sentences_added = 0
+    for idx, block in enumerate(transcript):
+        if block["type"] == "sentence":  # isinstance(block, TranscriptSentenceBlock):
+            result += f"{{{idx}}} {block['text']} "
+            sentences_added += 1
+        if sentences_added >= sentences:
+            yield result, sentences_added
+            sentences_added = 0
+            result = ""
+    yield result, sentences_added
 
 
 @task(
     task_display_name="Proofread Transcript",
-    map_index_template="{{ task.op_kwargs['transcript']['language'] }}")
+    map_index_template="{{ task.op_kwargs['transcript']['language'] }}",
+)
 def proofread_transcript(
     transcript: dict,
     metadata: dict,
@@ -53,23 +53,19 @@ def proofread_transcript(
     # process the transcript in chunks
     for chunk, sentences_count in get_transcript_chunk(transcript, 150):
         response_text = antropic.process(
-            request_system = prompts[language],
-            request_user = chunk
+            request_system=prompts[language], request_user=chunk
         )
 
         # parse the result
-        pattern = r'\{(\d+)\}\s([^{}]+)'
+        pattern = r"\{(\d+)\}\s([^{}]+)"
         matches = findall(pattern, response_text)
-        edited_sentences_dict = {
-            index: sentence.strip()
-            for index, sentence in matches
-        }
+        edited_sentences_dict = {index: sentence.strip() for index, sentence in matches}
 
         # apply changes to the transcript
         count_total += sentences_count
         for sentence_id, sentence_text in edited_sentences_dict.items():
             if transcript[int(sentence_id)]["text"] != sentence_text:
-              count_changes += 1
+                count_changes += 1
             transcript[int(sentence_id)]["text"] = sentence_text
 
     return {

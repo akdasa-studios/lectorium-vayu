@@ -1,11 +1,11 @@
-from re import findall
 from os import environ
+from re import findall
+
 from airflow.decorators import task
+
 from lectorium.services import DeepLService
 
-
-deepl = DeepLService(
-    api_key=environ.get("DEEPL_API_KEY"))
+deepl = DeepLService(api_key=environ.get("DEEPL_API_KEY"))
 
 
 def get_transcript_chunk(
@@ -20,7 +20,8 @@ def get_transcript_chunk(
 
 @task(
     task_display_name="Translate Transcript",
-    map_index_template="{{ task.op_kwargs['language'] }}")
+    map_index_template="{{ task.op_kwargs['language'] }}",
+)
 def translate_transcript(
     transcript: dict,
     language: str,
@@ -35,21 +36,16 @@ def translate_transcript(
 
     # process the transcript in chunks
     chunk = get_transcript_chunk(transcript)
-    response_text = deepl.translate(
-        chunk, language
-    )
+    response_text = deepl.translate(chunk, language)
 
     # log the result
     print("Translated text:")
     print(response_text)
 
     # parse the result
-    pattern = r'\{(\d+)\}\s([^{}]+)'
+    pattern = r"\{(\d+)\}\s([^{}]+)"
     matches = findall(pattern, response_text)
-    edited_sentences_dict = {
-        index: sentence.strip()
-        for index, sentence in matches
-    }
+    edited_sentences_dict = {index: sentence.strip() for index, sentence in matches}
 
     # apply changes to the transcript
     for sentence_id, sentence_text in edited_sentences_dict.items():

@@ -1,9 +1,8 @@
-from airflow.exceptions import AirflowSkipException
 from airflow.decorators import task
+from airflow.exceptions import AirflowSkipException
 
 
-@task(
-    task_display_name="Generate Title")
+@task(task_display_name="Generate Title")
 def generate_title(
     transcript: dict,
 ) -> str:

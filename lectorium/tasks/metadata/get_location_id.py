@@ -1,12 +1,13 @@
 from os import environ
+
 from airflow.decorators import task
 
 from lectorium.services import CouchDbService
 
 couch_db = CouchDbService(environ.get("DATABASE_URL"))
 
-@task(
-    task_display_name="Get Location Id")
+
+@task(task_display_name="Get Location Id")
 def get_location_id(
     location_name: str,
 ) -> str:
@@ -23,9 +24,8 @@ def get_location_id(
 
     languages = ["en", "ru"]
     for language in languages:
-        query = { f"name.{language}": location_name } # TODO: add other languages
-        location_db_record = couch_db.find_by_filter(
-            "library-dictionary-v0001", query)
+        query = {f"name.{language}": location_name}  # TODO: add other languages
+        location_db_record = couch_db.find_by_filter("library-dictionary-v0001", query)
         print("query: ", query)
         print("response: ", location_db_record)
 
@@ -34,4 +34,3 @@ def get_location_id(
 
     # Report error
     raise ValueError(f"Location '{location_name}' not found")
-

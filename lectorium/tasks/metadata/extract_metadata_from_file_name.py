@@ -1,12 +1,12 @@
 from os import environ
+
 from airflow.decorators import task
 
 from lectorium.models.metadata import MetadataFromFileName
 from lectorium.services import OpenAIService
 
 
-@task(
-    task_display_name="Get Metadata From File Name")
+@task(task_display_name="Get Metadata From File Name")
 def extract_metadata_from_file_name(
     path: str,
     language: str,
@@ -33,24 +33,21 @@ def extract_metadata_from_file_name(
             """,
     }
 
-
     # make a request to the OpenAI service
     prompt = f"""{prompts[language]}
 
             {path}"""
     openai = OpenAIService(environ.get("OPENAI_API_KEY"))
-    response_text = openai.process(
-        request_user=prompt)
+    response_text = openai.process(request_user=prompt)
 
     # process the response
     print("Prompt:", prompt)
     print("Extracted metadata: ", response_text)
 
     response_tokens = response_text.split("|")
-    get_by_index = (
-        lambda index: response_tokens[index].strip()
-        if index < len(response_tokens)
-        else None)
+    get_by_index = lambda index: (
+        response_tokens[index].strip() if index < len(response_tokens) else None
+    )
 
     # return the result
     return {
