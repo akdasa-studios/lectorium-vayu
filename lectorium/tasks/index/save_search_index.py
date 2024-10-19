@@ -1,11 +1,7 @@
-from os import environ
-
 from airflow.decorators import task
+from airflow.models import Variable
 
-from lectorium.models import Environment
 from lectorium.services.couchdb import CouchDbService
-
-couch_db = CouchDbService(environ.get("DATABASE_URL"))
 
 
 @task(
@@ -15,16 +11,26 @@ couch_db = CouchDbService(environ.get("DATABASE_URL"))
 def save_search_index(
     track_id: str,
     word: str,
-    env: Environment,
 ) -> str:
-    database = env["index_collection_name"]
+
+    # ---------------------------------------------------------------------------- #
+    #                                 Dependencies                                 #
+    # ---------------------------------------------------------------------------- #
+
+    index_collection_name = Variable.get("index_collection_name")
+    database_connection_string = Variable.get("database_connection_string")
+    couch_db = CouchDbService(database_connection_string)
+
+    # ---------------------------------------------------------------------------- #
+    #                                     Steps                                    #
+    # ---------------------------------------------------------------------------- #
 
     document_id = f"index::{word}"
 
     # TODO: add real database
     # try to find existing index document
     document = couch_db.find_by_id(
-        database,
+        index_collection_name,
         document_id,
     )
 
@@ -41,5 +47,8 @@ def save_search_index(
     # add the track to the index
     document["in_title"].append(track_id)
 
-    # save the index document
-    couch_db.save(database, document)
+    # ---------------------------------------------------------------------------- #
+    #                                    Output                                    #
+    # ---------------------------------------------------------------------------- #
+
+    couch_db.save(index_collection_name, document)

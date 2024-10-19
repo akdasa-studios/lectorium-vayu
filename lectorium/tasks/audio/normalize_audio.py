@@ -1,26 +1,33 @@
 from io import StringIO
-from os import environ
+from urllib.parse import urlparse
 
 from airflow.decorators import task
+from airflow.models import Variable
 from paramiko import AutoAddPolicy, RSAKey, SSHClient
 from scp import SCPClient
+from vastai import VastAI
 
 
-@task(task_display_name="Normalize Audio", do_xcom_push=True)
+@task(
+    task_display_name="Normalize Audio", do_xcom_push=True, pool="normalize_audio_pool"
+)
 def normalize_audio(
-    file_path: str,
-    track_id: str,
-):
-    print(f"Normalizing auido: {file_path}")
+    file_path: str, track_id: str, vakshuddhi_instance_id: int, mode: str
+) -> str:
 
-    # ssh -p 50072 root@39.114.73.97 -L 8080:localhost:8080
-    # Define your connection parameters
-    host = "172.81.127.5"
-    user = "root"
-    port = 35013
+    # ---------------------------------------------------------------------------- #
+    #                                 Dependencies                                 #
+    # ---------------------------------------------------------------------------- #
 
-    # Example SSH private key string
-    ssh_private_key_string = environ.get("PRIVATE_SSH_KEY")
+    ssh_key = Variable.get("vakshuddhi_ssh_key")
+    vast_api_key = Variable.get("vastai_api_key")
+    vast_sdk = VastAI(api_key=vast_api_key)
+    ssh_url = vast_sdk.ssh_url(id=vakshuddhi_instance_id)
+
+    # ---------------------------------------------------------------------------- #
+    #                                     Steps                                    #
+    # ---------------------------------------------------------------------------- #
+
     # Create an SSH client
     ssh_client = SSHClient()
 
@@ -29,12 +36,19 @@ def normalize_audio(
     ssh_client.set_missing_host_key_policy(AutoAddPolicy())
 
     # Load the private key from the string using StringIO
-    private_key_file = StringIO(ssh_private_key_string)
+    private_key_file = StringIO(ssh_key)
     private_key = RSAKey(file_obj=private_key_file)
 
     try:
         # Connect to the remote server
-        ssh_client.connect(hostname=host, port=port, username=user, pkey=private_key)
+        print(f"Connecting to {ssh_url}")
+        parsed_url = urlparse(ssh_url)
+        ssh_client.connect(
+            hostname=parsed_url.hostname,
+            port=parsed_url.port,
+            username=parsed_url.username,
+            pkey=private_key,
+        )
 
         def exec(command):
             print("========================================")
@@ -55,12 +69,27 @@ def normalize_audio(
             scp.put(file_path, f"/root/{track_id}/in/{track_id}.mp3")
 
         # Process the file on the remote server
-        exec(f"cd {track_id}/in; ffmpeg -n -i {track_id}.mp3 {track_id}.wav")
+
+        # ----------- extract required channel only / process all channels ----------- #
+        if mode == "normal":
+            exec(f"cd {track_id}/in;" f"ffmpeg -n -i {track_id}.mp3 {track_id}.wav")
+        elif mode == "right" or mode == "left":
+            # doc: https://trac.ffmpeg.org/wiki/AudioChannelManipulation
+            channel = "FR" if mode == "right" else "FL"
+            exec(
+                f"cd {track_id}/in;"
+                f"ffmpeg -i {track_id}.mp3 -filter_complex '[0:a]channelsplit=channel_layout=stereo:channels={channel}[{mode}]' -map '[{mode}]' {track_id}.wav"
+            )
+        else:
+            raise ValueError("Invalid mode")
+
+        # ------------------------------- enhance audio ------------------------------ #
+        exec(f"cd {track_id};" f"resemble-enhance ./in ./out --denoise_only")
+
+        # ---------------------------- normalize loudness ---------------------------- #
         exec(
-            f"cd {track_id}; /opt/conda/bin/resemble-enhance ./in ./out --denoise_only"
-        )
-        exec(
-            f"cd {track_id}/out; ffmpeg -n -i ./{track_id}.wav -filter:a 'dynaudnorm=p=0.9:s=5' ./{track_id}.mp3"
+            f"cd {track_id}/out;"
+            f"ffmpeg -n -i ./{track_id}.wav -filter:a 'dynaudnorm=p=0.9:s=5' ./{track_id}.mp3"
         )
 
         # Download the processed file from the remote server
@@ -71,7 +100,7 @@ def normalize_audio(
         with SCPClient(ssh_client.get_transport()) as scp:
             scp.get(
                 f"/root/{track_id}/out/{track_id}.mp3", f"{file_path}.processed.mp3"
-            )  # TODO: escape the file path
+            )
         print("========================================")
 
         return f"{file_path}.processed.mp3"

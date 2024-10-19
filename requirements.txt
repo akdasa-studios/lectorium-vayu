@@ -1,5 +1,5 @@
+# ffmpeg-normalize==1.28.3
 apache-airflow==2.10.2
-ffmpeg-normalize==1.28.3
 boto3==1.35.27
 deepgram-sdk==3.4.0
 psycopg2==2.9.9
@@ -11,3 +11,5 @@ mutagen==1.47.0
 cuid2==2.0.1
 paramiko==3.5.0
 scp==0.15.0
+vastai==0.2.5
+jellyfish==1.1.0

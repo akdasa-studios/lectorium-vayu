@@ -6,4 +6,5 @@ class Environment(TypedDict):
     dictionary_collection_name: str
     transcripts_collection_name: str
     tracks_collection_name: str
+    tracks_inbox_collection_name: str
     index_collection_name: str

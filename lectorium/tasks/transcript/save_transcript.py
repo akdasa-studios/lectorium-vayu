@@ -1,11 +1,9 @@
 from os import environ
 
 from airflow.decorators import task
+from airflow.models import Variable
 
-from lectorium.models import Environment
 from lectorium.services import CouchDbService
-
-couch_db = CouchDbService(environ.get("DATABASE_URL"))
 
 
 @task(
@@ -15,8 +13,19 @@ couch_db = CouchDbService(environ.get("DATABASE_URL"))
 def save_transcript(
     track_id: str,
     transcript: dict,
-    env: Environment,
 ) -> str:
+    # ---------------------------------------------------------------------------- #
+    #                                 Dependencies                                 #
+    # ---------------------------------------------------------------------------- #
+
+    transcripts_collection_name = Variable.get("transcripts_collection_name")
+    database_connection_string = Variable.get("database_connection_string")
+    couch_db = CouchDbService(database_connection_string)
+
+    # ---------------------------------------------------------------------------- #
+    #                                     Steps                                    #
+    # ---------------------------------------------------------------------------- #
+
     language = transcript["language"]
     transcript = transcript["transcript"]
 
@@ -26,6 +35,8 @@ def save_transcript(
     # prepare document to save in the database
     document = {"_id": doc_id, "text": {"blocks": transcript}}
 
-    # save the document in the database
-    # TODO: add real database
-    couch_db.save(env["transcripts_collection_name"], document)
+    # ---------------------------------------------------------------------------- #
+    #                                    Output                                    #
+    # ---------------------------------------------------------------------------- #
+
+    couch_db.save(transcripts_collection_name, document)

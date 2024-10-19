@@ -14,7 +14,7 @@ class AntropicService:
             model="claude-3-5-sonnet-20240620",
             max_tokens=8192,
             temperature=0,
-            system=request_system,
+            system=request_system or "",
             messages=[
                 {
                     "role": "user",

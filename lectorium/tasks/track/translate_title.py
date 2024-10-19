@@ -13,10 +13,12 @@ deepl = DeepLService(api_key=environ.get("DEEPL_API_KEY"))
     map_index_template="{{ task.op_kwargs['language'] }}",
 )
 def translate_title(
-    title: str,
+    title: dict,
     language: str,
 ) -> dict:
-    response_text = deepl.translate(title, language)
+    print(f"Translating '{title['normalized']}' to {language}")
+
+    response_text = deepl.translate(title["normalized"], language)
     return {
         "title": response_text,
         "language": language,

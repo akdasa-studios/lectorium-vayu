@@ -5,6 +5,10 @@ class CouchDbService:
     def __init__(self, base_url: str) -> None:
         self.__base_url = base_url
 
+    @property
+    def base_url(self) -> str:
+        return self.__base_url
+
     def save(self, database_name: str, document: dict) -> None:
         document_id = document["_id"]
         url = f"{self.__base_url}/{database_name}/{document_id}"
@@ -36,4 +40,12 @@ class CouchDbService:
     def find_by_filter(self, database_name: str, filter: dict) -> list[dict]:
         url = f"{self.__base_url}/{database_name}/_find"
         response = post(url, json={"selector": filter})
-        return response.json().get("docs", [])
+        docs = response.json().get("docs", [])
+
+        print("--- [couchdb] -----------------------------------")
+        print("url", url)
+        print("query", filter)
+        print("response", docs)
+        print("---------------------------------------------------")
+
+        return docs
