@@ -1,1 +1,0 @@
-from .transcript_is_ready import TranscriptIsReady

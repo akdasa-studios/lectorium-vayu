@@ -1,23 +1,22 @@
-# ---------------------------------------------------------------------------- #
-#                                  Base Image                                  #
-# ---------------------------------------------------------------------------- #
-
-FROM python:3.12-slim as base
-
-WORKDIR /akd-studios/lectorium/modules/services/vayu
-RUN echo "Install dependencies"
-    && sudo apt-get install -y --no-install-recommends \
-    && g++ protobuf-compiler libprotobuf-dev libpq-dev
-
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
+FROM apache/airflow:2.10.2
 
 # ---------------------------------------------------------------------------- #
-#                                 Release Image                                #
+#                                     Meta                                     #
 # ---------------------------------------------------------------------------- #
 
-FROM base as release
+LABEL org.opencontainers.image.description="Vayu"
+LABEL org.opencontainers.image.source="https://github.com/akdasa-studios/lectorium"
 
-COPY . .
-CMD ["python", "main.py"]
+# ---------------------------------------------------------------------------- #
+#                             Install Dependencies                             #
+# ---------------------------------------------------------------------------- #
+
+USER root
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends \
+         build-essential \
+  && apt-get autoremove -yqq --purge \
+  && apt-get clean \
+  && rm -rf /var/lib/apt/lists/*
+USER airflow
+RUN pip install --no-cache-dir deepgram-sdk anthropic jellyfish
