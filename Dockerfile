@@ -19,4 +19,5 @@ RUN apt-get update \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
 USER airflow
-RUN pip install --no-cache-dir deepgram-sdk anthropic jellyfish
+RUN pip install --no-cache-dir deepgram-sdk anthropic jellyfish vastai nltk mutagen cuid2
+COPY entrypoint-dev.sh /akd-studios/lectorium/services/vayu/entrypoint-dev.sh

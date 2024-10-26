@@ -9,12 +9,13 @@ from pendulum import duration
 import services as services
 import lectorium as lectorium
 
+
 # ---------------------------------------------------------------------------- #
 #                                      DAG                                     #
 # ---------------------------------------------------------------------------- #
 
 @dag(
-    dag_display_name="Translate Transcript",
+    dag_display_name="📜 Translate Transcript",
     description="Translates transcript for the given track in the given languages.",
     schedule=None,
     start_date=datetime(2021, 1, 1),
@@ -102,7 +103,7 @@ def translate_transcript():
     transcript_translated_chunks_plain = (
         services.claude.execute_prompt
             .partial(
-                model="claude-3-haiku-20240307",
+                # model="claude-3-haiku-20240307",
                 max_tokens=4096,
                 system_message=translate_transcript_prompt,
                 user_message_prefix=translate_transcript_prompt,

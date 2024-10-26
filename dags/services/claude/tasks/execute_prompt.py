@@ -15,6 +15,9 @@ def execute_prompt(
     model: str = "claude-3-5-sonnet-20240620",
     max_tokens: int = 8192,
 ) -> str:
+    print(user_message)
+    print(user_message_prefix)
+
     # ---------------------------------------------------------------------------- #
     #                                 Dependencies                                 #
     # ---------------------------------------------------------------------------- #
@@ -25,8 +28,6 @@ def execute_prompt(
     # ---------------------------------------------------------------------------- #
     #                                     Steps                                    #
     # ---------------------------------------------------------------------------- #
-
-    print(user_message_prefix + user_message)
 
     message = client.messages.with_raw_response.create(
         model=model,
@@ -44,7 +45,7 @@ def execute_prompt(
                 ],
             }
         ],
-        # extra_headers={"anthropic-beta": "max-tokens-3-5-sonnet-2024-07-15"},
+        extra_headers={"anthropic-beta": "max-tokens-3-5-sonnet-2024-07-15"},
     )
 
     # ---------------------------------------------------------------------------- #

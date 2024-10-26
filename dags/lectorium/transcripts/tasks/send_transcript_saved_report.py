@@ -73,7 +73,7 @@ def send_transcript_saved_report(
     # ---------------------------------------------------------------------------- #
 
     send_email_smtp(
-        to=["alerts@akdasa.studio"],
+        to=["alerts@akdasa.studio"], # TODO: Change to variable
         conn_id="alert_email",
         subject="New transcript saved",
         html_content=f"""

@@ -4,7 +4,8 @@ from airflow.decorators import task
 
 
 @task(
-    task_display_name="🗄️ CouchDB: Save Document")
+    task_display_name="🗄️ CouchDB: Save Document",
+    map_index_template="{{ task.op_kwargs.get('document_id', None) or task.op_kwargs['document'].get('_id', None) }}",)
 def save_document(
     connection_string: str,
     collection: str,

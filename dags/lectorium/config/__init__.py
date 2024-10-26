@@ -1,2 +1,3 @@
 from lectorium.config.database import LECTORIUM_DATABASE_CONNECTION_STRING, LECTORIUM_DATABASE_COLLECTIONS
-from lectorium.config.app_bucket import VAR_APP_BUCKET_GENERATE_TEMPORARY_ACCESS_KEY, VAR_APP_BUCKET_ACCESS_KEY
+from lectorium.config.app_bucket import VAR_APP_BUCKET_GENERATE_TEMPORARY_ACCESS_KEY, VAR_APP_BUCKET_ACCESS_KEY, VAR_APP_BUCKET_NAME, AppBucketAccessKey, AppBucketGenerateTempraryAccessKey
+from lectorium.config.vastai import VASTAI_ACCESS_KEY, VASTAI_PRIVATE_SSH_KEY

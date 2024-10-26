@@ -5,6 +5,7 @@ from airflow.models import Variable
 # ---------------------------------------------------------------------------- #
 #                                     Names                                    #
 # ---------------------------------------------------------------------------- #
+VAR_APP_BUCKET_NAME = "lectorium::bucket::name"
 VAR_APP_BUCKET_GENERATE_TEMPORARY_ACCESS_KEY = "lectorium::bucket::generate-temporary-access-key"
 VAR_APP_BUCKET_ACCESS_KEY = "lectorium::bucket::access-key"
 
@@ -49,3 +50,8 @@ Variable.setdefault(
     ),
     "Credentials to access the app bucket",
     deserialize_json=True)
+
+Variable.setdefault(
+    VAR_APP_BUCKET_NAME,
+    "lectorium",
+    "Name of the app bucket")
