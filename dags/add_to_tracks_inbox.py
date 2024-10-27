@@ -19,7 +19,7 @@ import lectorium as lectorium
 # ---------------------------------------------------------------------------- #
 
 @dag(
-    dag_display_name="📨 Add To Tracks Inbox",
+    dag_display_name="📨 Inbox: Add New Track to Inbox",
     description="Adds new file to the tracks inbox",
     schedule=None, # duration(minutes=5),
     start_date=datetime(2021, 1, 1),

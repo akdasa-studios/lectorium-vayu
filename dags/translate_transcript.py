@@ -15,7 +15,7 @@ import lectorium as lectorium
 # ---------------------------------------------------------------------------- #
 
 @dag(
-    dag_display_name="📜 Translate Transcript",
+    dag_display_name="📜 Transcript: Translate",
     description="Translates transcript for the given track in the given languages.",
     schedule=None,
     start_date=datetime(2021, 1, 1),

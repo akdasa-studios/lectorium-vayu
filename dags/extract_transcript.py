@@ -15,7 +15,7 @@ import lectorium as lectorium
 # ---------------------------------------------------------------------------- #
 
 @dag(
-    dag_display_name="📜 Extract Transcript",
+    dag_display_name="📜 Trascript: Extract Raw Text",
     description="Extracts transcript for the given track in the given language.",
     start_date=datetime(2021, 1, 1),
     schedule=None,

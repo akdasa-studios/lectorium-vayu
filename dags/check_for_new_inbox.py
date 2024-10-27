@@ -18,7 +18,7 @@ import lectorium as lectorium
 # ---------------------------------------------------------------------------- #
 
 @dag(
-    dag_display_name="📨 Check For New Inbox",
+    dag_display_name="📨 Inbox: Check For New Tracks",
     description="Checks if there are any new files in the inbox",
     schedule=None, # duration(minutes=5),
     start_date=datetime(2021, 1, 1),

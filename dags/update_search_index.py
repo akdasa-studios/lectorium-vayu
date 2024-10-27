@@ -16,7 +16,7 @@ import lectorium as lectorium
 # ---------------------------------------------------------------------------- #
 
 @dag(
-    dag_display_name="🔎 Update Search Index",
+    dag_display_name="🔎 Index: Update Search Index",
     description="Updates search index for the given track.",
     schedule=None,
     start_date=datetime(2021, 1, 1),

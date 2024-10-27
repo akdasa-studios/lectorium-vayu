@@ -17,7 +17,7 @@ import lectorium as lectorium
 # ---------------------------------------------------------------------------- #
 
 @dag(
-    dag_display_name="🔈 Process Audio",
+    dag_display_name="🔈 Audio: Normalize",
     description="Process audio file",
     schedule=None,
     start_date=datetime(2021, 1, 1),

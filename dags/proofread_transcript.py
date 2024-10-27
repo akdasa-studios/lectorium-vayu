@@ -15,7 +15,7 @@ import lectorium as lectorium
 # ---------------------------------------------------------------------------- #
 
 @dag(
-    dag_display_name="📜 Proofread Transcript",
+    dag_display_name="📜 Transcript: Proofread",
     description="Proofreads the extracted transcript for the given track in the given language.",
     start_date=datetime(2021, 1, 1),
     schedule=None,
