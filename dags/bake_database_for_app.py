@@ -65,7 +65,9 @@ def bake_database_for_app():
         command='node index.js',
         docker_url='unix://var/run/docker.sock',
         network_mode='host',
-        mounts=[Mount(source='/tmp/lectorium', target='/tools/artifacts', type='bind')],
+        mounts=[
+            Mount(source='/tmp/lectorium', target='/tools/artifacts', type='bind')
+        ],
         environment={
             'DATABASE_URI': 'https://lectorium:!DVxqv-aj_wW4kCXC*TdbYk*EHk6rDqD@app.lectorium.akdasa.studio/database/',
         },
@@ -79,12 +81,6 @@ def bake_database_for_app():
             file_path=f'/tmp/lectorium/{file}.db',
         )
 
-        @task.bash(
-            task_id=f'remove_{file}',
-            task_display_name=f"Remove {file}.db")
-        def remove_file(file: str):
-            return f"rm /tmp/lectorium/{file}.db"
-
-        run_node_app >> uploaded_file >> remove_file(file)
+        run_node_app >> uploaded_file
 
 bake_database_for_app()
