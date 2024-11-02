@@ -19,6 +19,7 @@ def prepare_track_document(
 
     document = {
         "_id": track_id,
+        "version": 1,
         "audioUrl": {
             "original": audio_file_original_url,
             "normalized": audio_file_normalized_url,

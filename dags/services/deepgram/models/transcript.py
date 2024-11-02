@@ -11,3 +11,4 @@ class TranscriptBlock(TypedDict):
 class Transcript(TypedDict):
     language: str
     blocks: list[TranscriptBlock]
+    version: int = 1
