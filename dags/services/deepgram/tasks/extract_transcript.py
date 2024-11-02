@@ -76,6 +76,7 @@ def extract_transcript(
     # ---------------------------------------------------------------------------- #
 
     return Transcript(
+        version=1,
         blocks=blocks,
         language=language,
     )
