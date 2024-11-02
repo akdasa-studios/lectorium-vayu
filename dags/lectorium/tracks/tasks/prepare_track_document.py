@@ -50,13 +50,15 @@ def prepare_track_document(
             ]
     }
 
-    if not document.get("date", None):
-        del document["date"]
-
     if not document.get("location", None):
         del document["location"]
 
-    if not document.get("references", None):
-        del document["references"]
+    # TODO: App is not ready for that yet
+    #       once it is ready, we can uncomment this
+    # if not document.get("date", None):
+    #     del document["date"]
+
+    # if not document.get("references", None):
+    #     del document["references"]
 
     return document
