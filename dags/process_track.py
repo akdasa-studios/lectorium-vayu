@@ -90,8 +90,8 @@ def process_track():
 
     track_id                     = "{{ dag_run.conf['track_id'] }}"
     chunk_size                   = "{{ dag_run.conf['chunk_size'] | int }}"
-    path_to_original_audio_file  = f"tests/library/audio/original/{track_id}.mp3"
-    path_to_processed_audio_file = f"tests/library/audio/normalized/{track_id}.mp3"
+    path_to_original_audio_file  = f"library/audio/original/{track_id}.mp3"
+    path_to_processed_audio_file = f"library/audio/normalized/{track_id}.mp3"
     languages_in_audio_file      = get_languages_in_audio_file()
     languages_to_translate_into  = get_languages_to_translate_into()
 
