@@ -74,7 +74,7 @@ def process_audio():
     # ---------------------------------------------------------------------------- #
 
     vastai_instances = vastai.get_instances(vastai_access_key)
-    vastai_active_instance = vastai.get_active_instance(vastai_instances, "audio")
+    vastai_active_instance = vastai.get_active_instance(vastai_instances, "vakshuddhi")
     vastai_ssh_connection = (
         vastai.get_ssh_connection_to_instance(
             api_key=vastai_access_key,
