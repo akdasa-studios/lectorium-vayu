@@ -19,8 +19,10 @@ def prepare_track_document(
 
     document = {
         "_id": track_id,
-        "url": audio_file_original_url,
-        "audioNormalizedUrl": audio_file_normalized_url,
+        "audioUrl": {
+            "original": audio_file_original_url,
+            "normalized": audio_file_normalized_url,
+        },
         "title": {
             lang: inbox_track["title"]["normalized"]
             for lang in languages_in_audio_file
