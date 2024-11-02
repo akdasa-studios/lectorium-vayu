@@ -5,3 +5,5 @@ from services.vastai.tasks.get_instances import get_instances
 from services.vastai.tasks.get_ssh_connection_to_instance import get_ssh_connection_to_instance
 from services.vastai.tasks.launch_new_instance import launch_new_instance
 from services.vastai.tasks.wait_instance_to_start import wait_instance_to_start
+from services.vastai.tasks.get_active_instances import get_active_instances
+from services.vastai.tasks.shutdown_instance import shutdown_instance

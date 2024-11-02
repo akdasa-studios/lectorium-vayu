@@ -6,15 +6,14 @@ from services.vastai.models.instance import Instance
 
 
 @task(
-    task_display_name="🚀 VastAI: Get Random Active Instance",
-    multiple_outputs=True,
-)
-def get_active_instance(
+    task_display_name="🚀 VastAI: Get Active Instances",
+    multiple_outputs=False)
+def get_active_instances(
     instances: list[Instance],
     label: str
 ) -> Instance:
-    return choice([
+    return [
         instance
         for instance in instances
         if instance["status"] == "running" and instance["label"] == label
-    ])
+    ]
