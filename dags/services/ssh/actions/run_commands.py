@@ -1,8 +1,5 @@
 from urllib.parse import urlparse
 from io import StringIO
-
-from airflow.decorators import task
-
 from paramiko import AutoAddPolicy, RSAKey, SSHClient
 
 
@@ -10,9 +7,9 @@ def run_commands(
     url: str,
     private_key: str,
     commands: list[str],
-    fail_on_stderr: bool = False
+    fail_on_stderr: bool = False,
+    timeout: int = 60 * 2,
 ):
-
     connection = urlparse(url)
 
     # ---------------------------------------------------------------------------- #
@@ -46,9 +43,14 @@ def run_commands(
         def exec(command):
             print("========================================")
             print(f"{command}")
-            stdin, stdout, stderr = ssh_client.exec_command(command, timeout=60 * 2)
-            print("-- [ stdout ]---------------------------")
-            print(stdout.read().decode())
+            stdin, stdout, stderr = ssh_client.exec_command(command, timeout=timeout)
+
+            while True:
+                line = stdout.readline()
+                if not line:
+                    break
+                print(line, end="")
+
             print("-- [ stderr ]---------------------------")
             errors = stderr.read().decode()
             print(errors)

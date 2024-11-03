@@ -143,6 +143,7 @@ def process_audio():
         )(
             url=vastai_ssh_connection,
             private_key=vastai_private_ssh_key,
+            timeout=60 * 10,
             commands=[
                 f"cd {track_id}/in;"
                 f"ffmpeg -v quiet -stats -n -i {track_id}.mp3 {track_id}.wav",
