@@ -91,7 +91,7 @@ def process_audio():
             private_key=vastai_private_ssh_key,
             timeout=60 * 7,
             commands=[
-                 f"curl -sS --create-dirs -X GET '{path_source}' -o {track_id}/in/{track_id}.mp3",
+                 f"curl --create-dirs -X GET '{path_source}' -o {track_id}/in/{track_id}.mp3 --progress-bar 2>&1",
             ]
         )
     )
@@ -107,7 +107,7 @@ def process_audio():
             private_key=vastai_private_ssh_key,
             timeout=60 * 7,
             commands=[
-                f"curl -sS -X PUT --upload-file '{track_id}/in/{track_id}.mp3' '{path_original_dest}'",
+                f"curl -X PUT --upload-file '{track_id}/in/{track_id}.mp3' '{path_original_dest}' --progress-bar 2>&1",
             ]
         )
     )
@@ -123,7 +123,7 @@ def process_audio():
             private_key=vastai_private_ssh_key,
             timeout=60 * 7,
             commands=[
-                f"curl -sS -X PUT --upload-file '{track_id}/in/{track_id}.mp3' '{path_processed_dest}'",
+                f"curl -X PUT --upload-file '{track_id}/in/{track_id}.mp3' '{path_processed_dest}' --progress-bar 2>&1",
             ]
         )
     )
