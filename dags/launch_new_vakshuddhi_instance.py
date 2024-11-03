@@ -66,7 +66,7 @@ def launch_new_vakshuddhi_instance():
     instance_id = (
         vastai.launch_new_instance(
             vast_api_key=vastai_api_key,
-            query="cuda_vers=12.4 num_gpus=1 gpu_name=RTX_4090 inet_down>=100 rentable=true",
+            query="cuda_vers=12.4 num_gpus=1 gpu_name=RTX_4090 inet_down>=100 rentable=true geolocation=EU",
             image="pytorch/pytorch:2.4.0-cuda12.4-cudnn9-devel",
             label="vakshuddhi",
             disk=32,
