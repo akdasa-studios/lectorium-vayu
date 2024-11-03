@@ -4,7 +4,6 @@ from datetime import datetime, timedelta
 
 from airflow.decorators import dag, task
 from airflow.models import Param, Variable
-from pendulum import duration
 
 import services.aws as aws
 import services.vastai as vastai
@@ -26,10 +25,6 @@ import lectorium as lectorium
     dagrun_timeout=timedelta(minutes=60),
     default_args={
         "owner": "Advaita Krishna das",
-        "retries": 1,
-        "retry_exponential_backoff": True,
-        "retry_delay": duration(seconds=2),
-        "max_retry_delay": duration(hours=2),
     },
     render_template_as_native_obj=True,
     params={
@@ -94,6 +89,7 @@ def process_audio():
             fail_on_stderr=True,
             url=vastai_ssh_connection,
             private_key=vastai_private_ssh_key,
+            timeout=60 * 7,
             commands=[
                  f"curl -sS --create-dirs -X GET '{path_source}' -o {track_id}/in/{track_id}.mp3",
             ]
@@ -109,6 +105,7 @@ def process_audio():
             fail_on_stderr=True,
             url=vastai_ssh_connection,
             private_key=vastai_private_ssh_key,
+            timeout=60 * 7,
             commands=[
                 f"curl -sS -X PUT --upload-file '{track_id}/in/{track_id}.mp3' '{path_original_dest}'",
             ]
@@ -124,6 +121,7 @@ def process_audio():
             fail_on_stderr=True,
             url=vastai_ssh_connection,
             private_key=vastai_private_ssh_key,
+            timeout=60 * 7,
             commands=[
                 f"curl -sS -X PUT --upload-file '{track_id}/in/{track_id}.mp3' '{path_processed_dest}'",
             ]
