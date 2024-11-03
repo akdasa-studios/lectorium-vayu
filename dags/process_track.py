@@ -117,6 +117,8 @@ def process_track():
         Variable.get(lectorium.config.LECTORIUM_DATABASE_CONNECTION_STRING)
     )
 
+    sign_url_timespan = 60 * 60 * 8 # 8 hours
+
     # ---------------------------------------------------------------------------- #
     #                                Get Track Inbox                               #
     # ---------------------------------------------------------------------------- #
@@ -144,7 +146,7 @@ def process_track():
             bucket_name=app_bucket_name,
             object_key=track_inbox["source"],
             method="get",
-            expiration=3600,
+            expiration=sign_url_timespan,
         )
     )
 
@@ -159,7 +161,7 @@ def process_track():
             bucket_name=app_bucket_name,
             object_key=path_to_original_audio_file,
             method="put",
-            expiration=3600,
+            expiration=sign_url_timespan,
         )
     )
 
@@ -174,7 +176,7 @@ def process_track():
             bucket_name=app_bucket_name,
             object_key=path_to_processed_audio_file,
             method="put",
-            expiration=3600,
+            expiration=sign_url_timespan,
         )
     )
 
@@ -189,7 +191,7 @@ def process_track():
             bucket_name=app_bucket_name,
             object_key=path_to_processed_audio_file,
             method="get",
-            expiration=3600,
+            expiration=sign_url_timespan,
         )
     )
 
