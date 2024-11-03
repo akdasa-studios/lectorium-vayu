@@ -48,6 +48,10 @@ def launch_new_vakshuddhi_instance():
         Variable.get(lectorium.config.VASTAI_PRIVATE_SSH_KEY)
     )
 
+    vakshuddhi_vastai_query = (
+        Variable.get(lectorium.config.VASTAI_PRIVATE_SSH_KEY)
+    )
+
     commands_to_configure_instance = [
         "DEBIAN_FRONTEND=noninteractive apt-get -y -qq update",
         "DEBIAN_FRONTEND=noninteractive apt-get -y -qq install apt-utils > /dev/null 2>&1",
@@ -66,7 +70,7 @@ def launch_new_vakshuddhi_instance():
     instance_id = (
         vastai.launch_new_instance(
             vast_api_key=vastai_api_key,
-            query="cuda_vers=12.4 num_gpus=1 gpu_name=RTX_4090 inet_down>=100 rentable=true geolocation=EU",
+            query=vakshuddhi_vastai_query,
             image="pytorch/pytorch:2.4.0-cuda12.4-cudnn9-devel",
             label="vakshuddhi",
             disk=32,
