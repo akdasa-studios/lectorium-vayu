@@ -49,7 +49,7 @@ def launch_new_vakshuddhi_instance():
     )
 
     vakshuddhi_vastai_query = (
-        Variable.get(lectorium.config.VASTAI_PRIVATE_SSH_KEY)
+        Variable.get(lectorium.config.LECTORIUM_VAKSHUDDKI_VASTAI_QUERY)
     )
 
     commands_to_configure_instance = [
