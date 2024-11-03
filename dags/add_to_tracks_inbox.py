@@ -24,7 +24,7 @@ import lectorium as lectorium
     schedule=None, # duration(minutes=5),
     start_date=datetime(2021, 1, 1),
     catchup=False,
-    tags=["lectorium"],
+    tags=["lectorium", "inbox"],
     dagrun_timeout=timedelta(minutes=60),
     default_args={
         "owner": "Advaita Krishna das",
@@ -177,14 +177,15 @@ def add_to_tracks_inbox():
         lectorium.tracks_inbox.prepare_track_inbox_document(
             track_id=track_id,
             source_path=path,
-            file_path=path,
             file_size=file_size,
             audio_duration=audio_duration,
             filename_metadata=metadata,
             author_id=tracks_source["author"],
             location_id=normalized_location,
             date=normalized_date,
-            reference=normalized_reference)
+            reference=normalized_reference,
+            extract_languages=[tracks_source["language"]],
+            translate_into=[])
     )
 
     saved_document = (

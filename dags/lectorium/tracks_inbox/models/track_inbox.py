@@ -8,13 +8,35 @@ class NormalizedValue(TypedDict, Generic[T]):
     normalized: T | None
 
 class TrackInbox(TypedDict):
-    title: NormalizedValue[str]
-    author: NormalizedValue[str]
-    file_size: int
-    duration: int
-    references: list[NormalizedValue[list[str]]]
-    location: NormalizedValue[str]
-    date: NormalizedValue[list[int]]
+    # Path to the source file
     source: str
 
+    # Title of the track
+    title: NormalizedValue[str]
 
+    # Author of the track
+    author: NormalizedValue[str]
+
+    # List of references
+    references: list[NormalizedValue[list[str]]]
+
+    # Location
+    location: NormalizedValue[str]
+
+    # Date
+    date: NormalizedValue[list[int]]
+
+    # File size in bytes
+    file_size: int
+
+    # Duration of the track in seconds
+    duration: int
+
+    # Extract transcript from audio for languages
+    extract_languages: list[str]
+
+    # List of languages to translate transcript into
+    translate_into: list[str]
+
+    # Status of the track
+    status: str # new, ready, processing, done, error

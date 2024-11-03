@@ -50,17 +50,17 @@ import services.claude as claude
             title="Translate Into",
             **lectorium.shared.LANGUAGES_PARAMS,
         ),
-        "service": Param(
-            default="claude",
-            description="Service to use for proofreading",
-            type="string",
-            title="Proofreading Service",
-            enum=["claude", "ollama"],
-            values_display={
-                "claude": "Claude",
-                "ollama": "Ollama",
-            },
-        ),
+        # "service": Param(
+        #     default="claude",
+        #     description="Service to use for proofreading",
+        #     type="string",
+        #     title="Proofreading Service",
+        #     enum=["claude", "ollama"],
+        #     values_display={
+        #         "claude": "Claude",
+        #         "ollama": "Ollama",
+        #     },
+        # ),
         "chunk_size": Param(
             default=150,
             description="Number of blocks in a chunk",
@@ -199,7 +199,7 @@ def process_track():
 
     processed_audio = (
         task(
-            task_display_name="🔊 Process Audio",
+            task_display_name="🔊 Process Audio ⤵️",
         )(
             lectorium.shared.actions.run_dag
         )(
@@ -227,7 +227,7 @@ def process_track():
     #                              Extract Transcripts                             #
     # ---------------------------------------------------------------------------- #
 
-    @task(task_display_name="📜 Extract Transcripts")
+    @task(task_display_name="📜 Extract Transcripts ⤵️")
     def extract_transcript(
         track_id: str,
         audio_file_url: str,
@@ -262,7 +262,7 @@ def process_track():
     # ---------------------------------------------------------------------------- #
 
     @task( # TODO add task map index
-        task_display_name="📜 Proofread Transcripts")
+        task_display_name="📜 Proofread Transcripts ⤵️")
     def proofread_transcript(
         track_id: str,
         language: str,
@@ -297,7 +297,7 @@ def process_track():
     # ---------------------------------------------------------------------------- #
 
     @task( # TODO add task map index
-        task_display_name="📜 Translate Transcripts")
+        task_display_name="📜 Translate Transcripts ⤵️")
     def translate_transcript(
         track_id: str,
         language_to_translate_from: str,
@@ -376,10 +376,11 @@ def process_track():
 
     translated_transcripts >> track_document >> saved_document
 
+
     # ------------------------------- Update Index ------------------------------- #
 
     @task(
-        task_display_name="🔍 Update Search Index",
+        task_display_name="🔍 Update Search Index ⤵️",
         map_index_template="{{ task.op_kwargs['language'] }}")
     def update_index(track_id: str, language: str, **kwargs):
         lectorium.shared.actions.run_dag(
@@ -399,13 +400,34 @@ def process_track():
             .expand(language=languages_in_audio_file.concat(languages_to_translate_into))
     )
 
+    # ---------------------------------------------------------------------------- #
+    #                              Archive Inbox Track                             #
+    # ---------------------------------------------------------------------------- #
+
+    archived_inbox_track = (
+        task(
+            task_display_name="📦 Archive Inbox Track ⤵️"
+        )(
+            lectorium.shared.actions.run_dag
+        )(
+            task_id="archive_inbox_track",
+            trigger_dag_id="archive_inbox_track",
+            wait_for_completion=True,
+            dag_run_params={
+                "track_id": track_id,
+            }
+        )
+    )
+
+    saved_document >> updated_index >> archived_inbox_track
+
     # ---------------------------------- Notify ---------------------------------- #
 
     @task(task_display_name="📧 Notify")
     def notify(track_id: str):
         pass
 
-    saved_document >> updated_index >> notify(track_id)
+    archived_inbox_track >> notify(track_id)
 
 
 

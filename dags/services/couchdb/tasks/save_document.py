@@ -32,3 +32,5 @@ def save_document(
 
     if response.status_code not in [200, 201]:
         raise Exception(f"Failed to save document: {response.text}")
+
+    return document

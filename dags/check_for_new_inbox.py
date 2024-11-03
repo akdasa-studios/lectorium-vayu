@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+from typing import Callable
 
 from airflow.decorators import dag, task
 from airflow.models import Param, Variable
@@ -9,7 +10,6 @@ from cuid2 import cuid_wrapper
 
 import services.aws as aws
 import services.couchdb as couchdb
-import services.claude as claude
 import lectorium as lectorium
 
 
@@ -23,7 +23,7 @@ import lectorium as lectorium
     schedule=None, # duration(minutes=5),
     start_date=datetime(2021, 1, 1),
     catchup=False,
-    tags=["lectorium"],
+    tags=["lectorium", "inbox"],
     dagrun_timeout=timedelta(minutes=60),
     default_args={
         "owner": "Advaita Krishna das",
