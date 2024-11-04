@@ -6,6 +6,7 @@ from airflow.decorators import dag, task, teardown
 from airflow.models import DagRun, Param, Variable, TaskInstance
 from airflow.utils.context import Context
 from pendulum import duration
+from airflow.operators.python import get_current_context
 
 import lectorium as lectorium
 import lectorium.tracks_inbox

@@ -1,6 +1,6 @@
 from airflow.decorators import task
 
-from services.couchdb.actions.save_document import save_document
+from services.couchdb.actions.save_document import save_document as action_save_document
 
 
 @task(
@@ -12,4 +12,4 @@ def save_document(
     document: dict,
     document_id: str = None
 ) -> None:
-    save_document(connection_string, collection, document, document_id)
+    return action_save_document(connection_string, collection, document, document_id)
