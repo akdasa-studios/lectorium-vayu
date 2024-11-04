@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 
 from airflow.decorators import dag, task, teardown
 from airflow.models import DagRun, Param, Variable, TaskInstance
+from airflow.utils.context import Context
 from pendulum import duration
 
 import lectorium as lectorium
@@ -122,6 +123,23 @@ def process_track():
             document_id=track_id
         )
     )
+
+    @task(
+        task_display_name="📝 Add Note")
+    def add_note(
+        track_inbox: TrackInbox,
+    ):
+        context: Context = get_current_context()
+        dag_run = context['dag_run']
+        lectorium.shared.actions.set_dag_run_note(
+            dag_run=dag_run,
+            note=f"""
+            *Track ID*: `{track_inbox["_id"]}`
+            *Title*: {track_inbox["title"]['original']}
+            """
+        )
+
+    track_inbox >> add_note(track_inbox=track_inbox)
 
     # ---------------------------------------------------------------------------- #
     #                                   Sign Urls                                  #
