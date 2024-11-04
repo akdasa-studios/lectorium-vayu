@@ -139,8 +139,8 @@ def process_track():
         lectorium.shared.actions.set_dag_run_note(
             dag_run=dag_run,
             note=(
-                f"_Track ID_: `{track_inbox["_id"]}`"
-                f"_Title_: {track_inbox["title"]['normalized']}")
+                f"**Track ID**: `{track_inbox["_id"]}`<br>"
+                f"**Title**: {track_inbox["title"]['normalized']}")
         )
 
     track_inbox >> add_note(track_inbox=track_inbox)
@@ -412,16 +412,17 @@ def process_track():
     @task(
         task_display_name="🎉 Update Track Inbox State")
     def teardown_task(
-        track: Track,
+        track_id: str,
+        saved_track: Track = None,
     ):
         # Load track inbox document for specified track
         track_inbox: TrackInbox = couchdb.actions.get_document(
             connection_string=couchdb_connection_string,
             collection=database_collections["tracks_inbox"],
-            document_id=track["_id"])
+            document_id=track_id)
 
         # Update track inbox document status
-        track_inbox["status"] = "done" if saved_document else "error"
+        track_inbox["status"] = "done" if saved_track else "error"
 
         # Save updated track inbox document
         couchdb.save_document(
@@ -430,7 +431,7 @@ def process_track():
             document=track_inbox)
 
 
-    archived_inbox_track >> notify(track_id) >> teardown_task(saved_document).as_teardown()
+    archived_inbox_track >> notify(track_id) >> teardown_task(track_id, saved_document).as_teardown()
 
 
 process_track()
