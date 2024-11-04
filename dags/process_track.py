@@ -281,7 +281,7 @@ def process_track():
     @task(
         task_display_name="📜 Translate Titles",
         map_index_template="{{ task.op_kwargs['language'] }}",
-        max_retry=3, retry_delay=timedelta(minutes=2))
+        retries=3, retry_delay=timedelta(minutes=1))
     def translate_title(
         track_inbox: lectorium.tracks_inbox.TrackInbox,
         language: str,
