@@ -70,22 +70,8 @@ def process_track():
     #                                    Config                                    #
     # ---------------------------------------------------------------------------- #
 
-    @task(task_display_name="🗣️ Languages In Audio File")
-    def get_languages_in_audio_file(dag_run: DagRun):
-        return dag_run.conf.get("languages_in_audio_file", [])
-
-    @task(task_display_name="🇷🇸 Translate Into")
-    def get_languages_to_translate_into(dag_run: DagRun):
-        return dag_run.conf.get("languages_to_translate_into", [])
-
-    @task(task_display_name="🇬🇧 Translate From")
-    def get_language_to_translate_from(dag_run: DagRun):
-        return dag_run.conf.get("languages_in_audio_file", [])[0]
-
-    track_id                     = "{{ dag_run.conf['track_id'] }}"
-    chunk_size                   = "{{ dag_run.conf['chunk_size'] | int }}"
-    path_to_original_audio_file  = f"library/audio/original/{track_id}.mp3"
-    path_to_processed_audio_file = f"library/audio/normalized/{track_id}.mp3"
+    track_id   = "{{ dag_run.conf['track_id'] }}"
+    chunk_size = "{{ dag_run.conf['chunk_size'] | int }}"
     languages_in_audio_file      = get_languages_in_audio_file()
     languages_to_translate_into  = get_languages_to_translate_into()
 
@@ -114,6 +100,22 @@ def process_track():
     sign_url_timespan = 60 * 60 * 8 # 8 hours
 
     # ---------------------------------------------------------------------------- #
+    #                                   Language                                   #
+    # ---------------------------------------------------------------------------- #
+
+    @task(task_display_name="🗣️ Languages In Audio File")
+    def get_languages_in_audio_file(dag_run: DagRun):
+        return dag_run.conf.get("languages_in_audio_file", [])
+
+    @task(task_display_name="🇷🇸 Translate Into")
+    def get_languages_to_translate_into(dag_run: DagRun):
+        return dag_run.conf.get("languages_to_translate_into", [])
+
+    @task(task_display_name="🇬🇧 Translate From")
+    def get_language_to_translate_from(dag_run: DagRun):
+        return dag_run.conf.get("languages_in_audio_file", [])[0]
+
+    # ---------------------------------------------------------------------------- #
     #                                Get Track Inbox                               #
     # ---------------------------------------------------------------------------- #
 
@@ -134,10 +136,9 @@ def process_track():
         dag_run = context['dag_run']
         lectorium.shared.actions.set_dag_run_note(
             dag_run=dag_run,
-            note=f"""
-            *Track ID*: `{track_inbox["_id"]}`
-            *Title*: {track_inbox["title"]['original']}
-            """
+            note=(
+                f"_Track ID_: `{track_inbox["_id"]}`"
+                f"_Title_: {track_inbox["title"]['normalized']}")
         )
 
     track_inbox >> add_note(track_inbox=track_inbox)
@@ -147,8 +148,12 @@ def process_track():
     # ---------------------------------------------------------------------------- #
 
     @task(
-        task_display_name="✍️ Sign Urls")
-    def sign_urls() -> dict:
+        task_display_name="✍️ Get File Urls",)
+    def get_audio_file_urls(
+        track_id: str,
+        track_inbox_path: str,
+    ) -> dict:
+        """Return local and signed urls for audio file."""
         sign = (
             lambda method, url: aws.actions.sign_url(
                 credentials=app_bucket_creds,
@@ -159,13 +164,15 @@ def process_track():
         )
 
         return {
-            "signed_source_audio_file_url": sign("get", track_inbox["source"]),
-            "signed_upload_original_audio_file_url": sign("put", path_to_original_audio_file),
-            "signed_upload_processed_audio_file_url": sign("put", path_to_processed_audio_file),
-            "signed_download_processed_audio_file_url": sign("get", path_to_processed_audio_file),
+            "local_original": f"library/audio/original/{track_id}.mp3",
+            "local_processed": f"library/audio/normalized/{track_id}.mp3",
+            "signed_get_source": sign("get", track_inbox_path),
+            "signed_put_original": sign("put", f"library/audio/original/{track_id}.mp3"),
+            "signed_put_processed": sign("put", f"library/audio/normalized/{track_id}.mp3"),
+            "signed_get_processed": sign("get", f"library/audio/normalized/{track_id}.mp3"),
         }
 
-    signed_urls = sign_urls()
+    signed_urls = get_audio_file_urls(track_id=track_id, track_inbox_path=track_inbox["source"])
 
     # ---------------------------------------------------------------------------- #
     #                                 Process Audio                                #
@@ -183,9 +190,9 @@ def process_track():
             reset_dag_run=True,
             dag_run_params={
                 "track_id": track_id,
-                "path_source": signed_urls["signed_source_audio_file_url"],
-                "path_original_dest": signed_urls["signed_upload_original_audio_file_url"],
-                "path_processed_dest": signed_urls["signed_upload_processed_audio_file_url"],
+                "path_source": signed_urls["signed_get_source"],
+                "path_original_dest": signed_urls["signed_put_original"],
+                "path_processed_dest": signed_urls["signed_put_processed"],
             }
         )
     )
@@ -219,7 +226,7 @@ def process_track():
         extract_transcript
             .partial(
                 track_id=track_id,
-                audio_file_url=signed_urls["signed_download_processed_audio_file_url"])
+                audio_file_url=signed_urls["signed_get_processed"])
             .expand(
                 language=languages_in_audio_file)
     )
@@ -329,8 +336,8 @@ def process_track():
         lectorium.tracks.prepare_track_document(
             track_id=track_id,
             inbox_track=track_inbox,
-            audio_file_original_url=path_to_original_audio_file,
-            audio_file_normalized_url=path_to_processed_audio_file,
+            audio_file_original_url=signed_urls["local_original"],
+            audio_file_normalized_url=signed_urls["local_processed"],
             languages_in_audio_file=languages_in_audio_file,
             languages_to_translate_into=languages_to_translate_into,
             translated_titles=languages_to_translate_into.zip(translated_titles))
