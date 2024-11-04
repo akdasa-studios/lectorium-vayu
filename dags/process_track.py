@@ -169,6 +169,7 @@ def process_track():
 
     @task(task_display_name="🔊 Process Audio ⤵️")
     def run_process_audio_dag(
+        track_id: str,
         paths: dict,
     ):
         return lectorium.shared.actions.run_dag(
@@ -393,7 +394,7 @@ def process_track():
                     track_id=track_id,
                     track_source_path=track_inbox["source"])
         ) >> (
-            run_process_audio_dag(audio_file_paths)
+            run_process_audio_dag(track_id, audio_file_paths)
         ) >> [
             (languages_in_audio_file     := get_languages_in_audio_file()),
             (languages_to_translate_into := get_languages_to_translate_into())
