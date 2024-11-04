@@ -131,8 +131,8 @@ def process_track():
         lectorium.shared.actions.set_dag_run_note(
             dag_run=dag_run,
             note=(
-                f"**Track ID**: `{track_inbox["_id"]}`<br>"
-                f"**Title**: {track_inbox["title"]['normalized']}<br>"
+                f"### `{track_inbox["_id"]}`\n\n"
+                f"**Title**: {track_inbox["title"]['normalized']}\n\n"
                 f"**Source**: {track_inbox["source"]}")
         )
 
