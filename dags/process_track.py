@@ -150,7 +150,7 @@ def process_track():
         task_display_name="✍️ Sign Urls")
     def sign_urls() -> dict:
         sign = (
-            lambda url, method: aws.actions.sign_url(
+            lambda method, url: aws.actions.sign_url(
                 credentials=app_bucket_creds,
                 bucket_name=app_bucket_name,
                 object_key=url,
