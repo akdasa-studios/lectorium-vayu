@@ -304,7 +304,7 @@ def process_track():
         audio_file_paths: dict,
         languages_in_audio_file: list[str],
         languages_to_translate_into: list[str],
-        translated_titles: list[str],
+        translated_titles: tuple[str, str],
     ):
         track_document = lectorium.tracks.prepare_track_document(
             track_id=track_id,
@@ -313,7 +313,7 @@ def process_track():
             audio_file_normalized_url=audio_file_paths["local_processed"],
             languages_in_audio_file=languages_in_audio_file,
             languages_to_translate_into=languages_to_translate_into,
-            translated_titles=languages_to_translate_into.zip(translated_titles))
+            translated_titles=translated_titles)
 
         couchdb.actions.save_document(
             connection_string=database_connection_string,
@@ -440,7 +440,7 @@ def process_track():
                 audio_file_paths=audio_file_paths,
                 languages_in_audio_file=languages_in_audio_file,
                 languages_to_translate_into=languages_to_translate_into,
-                translated_titles=translated_titles)
+                translated_titles=languages_to_translate_into.zip(translated_titles))
         ) >> (
             update_index
                 .partial(track_id=track_id)
