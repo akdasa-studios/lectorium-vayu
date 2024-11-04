@@ -8,6 +8,9 @@ class NormalizedValue(TypedDict, Generic[T]):
     normalized: T | None
 
 class TrackInbox(TypedDict):
+    # Unique identifier
+    _id: str
+
     # Path to the source file
     source: str
 

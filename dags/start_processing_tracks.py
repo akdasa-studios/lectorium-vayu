@@ -100,10 +100,14 @@ def start_processing_tracks():
         track: lectorium.tracks_inbox.TrackInbox,
         **kwargs
     ):
+        current_datetime_string = datetime.now().strftime("%Y%m%d%H%M%S")
+        dag_run_id = f"{track['_id']}_process_track_{current_datetime_string}"
+
         lectorium.shared.actions.run_dag(
             task_id="process_track",
             trigger_dag_id="process_track",
             wait_for_completion=False,
+            dag_run_id=dag_run_id,
             dag_run_params={
                 "track_id": track["_id"],
                 "languages_in_audio_file": track["extract_languages"],
