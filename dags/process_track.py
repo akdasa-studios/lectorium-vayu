@@ -72,8 +72,6 @@ def process_track():
 
     track_id   = "{{ dag_run.conf['track_id'] }}"
     chunk_size = "{{ dag_run.conf['chunk_size'] | int }}"
-    languages_in_audio_file      = get_languages_in_audio_file()
-    languages_to_translate_into  = get_languages_to_translate_into()
 
     app_bucket_name = (
          Variable.get(lectorium.config.VAR_APP_BUCKET_NAME)
@@ -115,6 +113,10 @@ def process_track():
     def get_language_to_translate_from(dag_run: DagRun):
         return dag_run.conf.get("languages_in_audio_file", [])[0]
 
+    languages_in_audio_file     = get_languages_in_audio_file()
+    languages_to_translate_into = get_languages_to_translate_into()
+
+
     # ---------------------------------------------------------------------------- #
     #                                Get Track Inbox                               #
     # ---------------------------------------------------------------------------- #
@@ -143,12 +145,13 @@ def process_track():
 
     track_inbox >> add_note(track_inbox=track_inbox)
 
+
     # ---------------------------------------------------------------------------- #
-    #                                   Sign Urls                                  #
+    #                              Get Audio File Urls                             #
     # ---------------------------------------------------------------------------- #
 
     @task(
-        task_display_name="✍️ Get File Urls",)
+        task_display_name="✍️ Get File Urls")
     def get_audio_file_urls(
         track_id: str,
         track_inbox_path: str,
@@ -172,7 +175,8 @@ def process_track():
             "signed_get_processed": sign("get", f"library/audio/normalized/{track_id}.mp3"),
         }
 
-    signed_urls = get_audio_file_urls(track_id=track_id, track_inbox_path=track_inbox["source"])
+    audio_file_paths = get_audio_file_urls(track_id=track_id, track_inbox_path=track_inbox["source"])
+
 
     # ---------------------------------------------------------------------------- #
     #                                 Process Audio                                #
@@ -190,14 +194,14 @@ def process_track():
             reset_dag_run=True,
             dag_run_params={
                 "track_id": track_id,
-                "path_source": signed_urls["signed_get_source"],
-                "path_original_dest": signed_urls["signed_put_original"],
-                "path_processed_dest": signed_urls["signed_put_processed"],
+                "path_source": audio_file_paths["signed_get_source"],
+                "path_original_dest": audio_file_paths["signed_put_original"],
+                "path_processed_dest": audio_file_paths["signed_put_processed"],
             }
         )
     )
 
-    track_inbox >> signed_urls >> processed_audio
+    track_inbox >> audio_file_paths >> processed_audio
 
     # ---------------------------------------------------------------------------- #
     #                              Extract Transcripts                             #
@@ -226,7 +230,7 @@ def process_track():
         extract_transcript
             .partial(
                 track_id=track_id,
-                audio_file_url=signed_urls["signed_get_processed"])
+                audio_file_url=audio_file_paths["signed_get_processed"])
             .expand(
                 language=languages_in_audio_file)
     )
@@ -336,8 +340,8 @@ def process_track():
         lectorium.tracks.prepare_track_document(
             track_id=track_id,
             inbox_track=track_inbox,
-            audio_file_original_url=signed_urls["local_original"],
-            audio_file_normalized_url=signed_urls["local_processed"],
+            audio_file_original_url=audio_file_paths["local_original"],
+            audio_file_normalized_url=audio_file_paths["local_processed"],
             languages_in_audio_file=languages_in_audio_file,
             languages_to_translate_into=languages_to_translate_into,
             translated_titles=languages_to_translate_into.zip(translated_titles))
