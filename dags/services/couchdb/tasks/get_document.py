@@ -1,6 +1,6 @@
-from requests import get
-
 from airflow.decorators import task
+
+from services.couchdb.actions.get_document import get_document
 
 
 @task(
@@ -13,8 +13,9 @@ def get_document(
     document_id: str = None,
     return_empty_if_not_found: bool = False,
 ) -> None:
-    url = f"{connection_string}/{collection}/{document_id}"
-    response = get(url)
-    if response.status_code != 200:
-        return {} if return_empty_if_not_found else None
-    return response.json()
+    return get_document(
+        connection_string,
+        collection,
+        document_id,
+        return_empty_if_not_found
+    )

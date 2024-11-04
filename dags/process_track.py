@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
-from airflow.decorators import dag, task
-from airflow.models import DagRun, Param, Variable
+from airflow.decorators import dag, task, teardown
+from airflow.models import DagRun, Param, Variable, TaskInstance
 from pendulum import duration
 
 import lectorium as lectorium
@@ -11,6 +11,9 @@ import lectorium.tracks_inbox
 import services.couchdb as couchdb
 import services.aws as aws
 import services.claude as claude
+
+from lectorium.tracks import Track
+from lectorium.tracks_inbox import TrackInbox
 
 # ---------------------------------------------------------------------------- #
 #                                      DAG                                     #
@@ -25,10 +28,10 @@ import services.claude as claude
     dagrun_timeout=timedelta(minutes=60),
     default_args={
         "owner": "Advaita Krishna das",
-        "retries": 3,
-        "retry_exponential_backoff": True,
-        "retry_delay": duration(seconds=30),
-        "max_retry_delay": duration(hours=2),
+        # "retries": 3,
+        # "retry_exponential_backoff": True,
+        # "retry_delay": duration(seconds=30),
+        # "max_retry_delay": duration(hours=2),
     },
     render_template_as_native_obj=True,
     params={
@@ -50,17 +53,6 @@ import services.claude as claude
             title="Translate Into",
             **lectorium.shared.LANGUAGES_PARAMS,
         ),
-        # "service": Param(
-        #     default="claude",
-        #     description="Service to use for proofreading",
-        #     type="string",
-        #     title="Proofreading Service",
-        #     enum=["claude", "ollama"],
-        #     values_display={
-        #         "claude": "Claude",
-        #         "ollama": "Ollama",
-        #     },
-        # ),
         "chunk_size": Param(
             default=150,
             description="Number of blocks in a chunk",
@@ -135,65 +127,26 @@ def process_track():
     #                                   Sign Urls                                  #
     # ---------------------------------------------------------------------------- #
 
-    signed_source_audio_file_url = (
-        task(
-            task_display_name="✍️ Sign Source Url",
-            multiple_outputs=False
-        )(
-            aws.actions.sign_url
-        )(
-            credentials=app_bucket_creds,
-            bucket_name=app_bucket_name,
-            object_key=track_inbox["source"],
-            method="get",
-            expiration=sign_url_timespan,
+    @task(
+        task_display_name="✍️ Sign Urls")
+    def sign_urls() -> dict:
+        sign = (
+            lambda url, method: aws.actions.sign_url(
+                credentials=app_bucket_creds,
+                bucket_name=app_bucket_name,
+                object_key=url,
+                method=method,
+                expiration=sign_url_timespan)
         )
-    )
 
-    signed_upload_original_audio_file_url = (
-        task(
-            task_display_name="✍️ Sign Original Upload Url",
-            multiple_outputs=False
-        )(
-            aws.actions.sign_url
-        )(
-            credentials=app_bucket_creds,
-            bucket_name=app_bucket_name,
-            object_key=path_to_original_audio_file,
-            method="put",
-            expiration=sign_url_timespan,
-        )
-    )
+        return {
+            "signed_source_audio_file_url": sign("get", track_inbox["source"]),
+            "signed_upload_original_audio_file_url": sign("put", path_to_original_audio_file),
+            "signed_upload_processed_audio_file_url": sign("put", path_to_processed_audio_file),
+            "signed_download_processed_audio_file_url": sign("get", path_to_processed_audio_file),
+        }
 
-    signed_upload_processed_audio_file_url = (
-        task(
-            task_display_name="✍️ Sign Processed Upload Url",
-            multiple_outputs=False
-        )(
-            aws.actions.sign_url
-        )(
-            credentials=app_bucket_creds,
-            bucket_name=app_bucket_name,
-            object_key=path_to_processed_audio_file,
-            method="put",
-            expiration=sign_url_timespan,
-        )
-    )
-
-    signed_download_processed_audio_file_url = (
-        task(
-            task_display_name="✍️ Sign Processed Download Url",
-            multiple_outputs=False
-        )(
-            aws.actions.sign_url
-        )(
-            credentials=app_bucket_creds,
-            bucket_name=app_bucket_name,
-            object_key=path_to_processed_audio_file,
-            method="get",
-            expiration=sign_url_timespan,
-        )
-    )
+    signed_urls = sign_urls()
 
     # ---------------------------------------------------------------------------- #
     #                                 Process Audio                                #
@@ -211,19 +164,14 @@ def process_track():
             reset_dag_run=True,
             dag_run_params={
                 "track_id": track_id,
-                "path_source": signed_source_audio_file_url,
-                "path_original_dest": signed_upload_original_audio_file_url,
-                "path_processed_dest": signed_upload_processed_audio_file_url,
+                "path_source": signed_urls["signed_source_audio_file_url"],
+                "path_original_dest": signed_urls["signed_upload_original_audio_file_url"],
+                "path_processed_dest": signed_urls["signed_upload_processed_audio_file_url"],
             }
         )
     )
 
-    track_inbox >> signed_source_audio_file_url
-    [
-        signed_source_audio_file_url,
-        signed_upload_original_audio_file_url,
-        signed_upload_processed_audio_file_url
-    ] >> processed_audio
+    track_inbox >> signed_urls >> processed_audio
 
     # ---------------------------------------------------------------------------- #
     #                              Extract Transcripts                             #
@@ -252,7 +200,7 @@ def process_track():
         extract_transcript
             .partial(
                 track_id=track_id,
-                audio_file_url=signed_download_processed_audio_file_url)
+                audio_file_url=signed_urls["signed_download_processed_audio_file_url"])
             .expand(
                 language=languages_in_audio_file)
     )
@@ -423,14 +371,36 @@ def process_track():
 
     saved_document >> updated_index >> archived_inbox_track
 
-    # ---------------------------------- Notify ---------------------------------- #
+    # ---------------------------------------------------------------------------- #
+    #                                     Done                                     #
+    # ---------------------------------------------------------------------------- #
 
     @task(task_display_name="📧 Notify")
     def notify(track_id: str):
         pass
 
-    archived_inbox_track >> notify(track_id)
+    @task(
+        task_display_name="🎉 Update Track Inbox State")
+    def teardown_task(
+        track: Track,
+    ):
+        # Load track inbox document for specified track
+        track_inbox: TrackInbox = couchdb.actions.get_document(
+            connection_string=couchdb_connection_string,
+            collection=database_collections["tracks_inbox"],
+            document_id=track["_id"])
 
+        # Update track inbox document status
+        track_inbox["status"] = "done" if saved_document else "error"
+
+        # Save updated track inbox document
+        couchdb.save_document(
+            connection_string=couchdb_connection_string,
+            collection=database_collections["tracks_inbox"],
+            document=track_inbox)
+
+
+    archived_inbox_track >> notify(track_id) >> teardown_task(saved_document).as_teardown()
 
 
 process_track()
