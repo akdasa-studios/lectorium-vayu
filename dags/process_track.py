@@ -171,6 +171,7 @@ def process_track():
     def run_process_audio_dag(
         track_id: str,
         paths: dict,
+        **kwargs,
     ):
         return lectorium.shared.actions.run_dag(
             task_id="process_audio",
@@ -183,7 +184,7 @@ def process_track():
                 "path_source": paths["signed_get_source"],
                 "path_original_dest": paths["signed_put_original"],
                 "path_processed_dest": paths["signed_put_processed"],
-            }
+            }, **kwargs
         )
 
     # ---------------------------------------------------------------------------- #
