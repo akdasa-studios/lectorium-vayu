@@ -315,7 +315,7 @@ def process_track():
             languages_to_translate_into=languages_to_translate_into,
             translated_titles=translated_titles)
 
-        couchdb.actions.save_document(
+        return couchdb.actions.save_document(
             connection_string=database_connection_string,
             collection=database_collections["tracks"],
             document=track_document)
