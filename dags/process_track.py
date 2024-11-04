@@ -425,7 +425,7 @@ def process_track():
         track_inbox["status"] = "done" if saved_track else "error"
 
         # Save updated track inbox document
-        couchdb.save_document(
+        couchdb.actions.save_document(
             connection_string=couchdb_connection_string,
             collection=database_collections["tracks_inbox"],
             document=track_inbox)
