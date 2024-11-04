@@ -134,11 +134,11 @@ def process_track():
         lectorium.shared.actions.set_dag_run_note(
             dag_run=dag_run,
             note=(
-                f"### `{track_inbox["_id"]}`\n\n"
+                f"## `{track_inbox["_id"]}`\n\n"
                 f"**Title**: {track_inbox["title"]['normalized']}\n\n"
                 f"**Source**: {track_inbox["source"]}\n\n\n\n"
-                f"[📥 Inbox]({base_url}/database/_utils/#database/tracks-inbox/{track_id})"
-                f"[💾 Track]({base_url}/database/_utils/#database/library-tracks-v0001/{track_id})")
+                f"- [📥 Inbox]({base_url}/database/_utils/#database/tracks-inbox/{track_id})"
+                f"- [💾 Track]({base_url}/database/_utils/#database/library-tracks-v0001/{track_id})")
         )
 
     # ---------------------------------------------------------------------------- #
