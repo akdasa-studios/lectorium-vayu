@@ -137,8 +137,8 @@ def process_track():
                 f"## `{track_inbox["_id"]}`\n\n"
                 f"**Title**: {track_inbox["title"]['normalized']}\n\n"
                 f"**Source**: {track_inbox["source"]}\n\n\n\n"
-                f"- [📥 Inbox]({base_url}/database/_utils/#database/tracks-inbox/{track_id})"
-                f"- [💾 Track]({base_url}/database/_utils/#database/library-tracks-v0001/{track_id})")
+                f"- [📥 Inbox]({base_url}/database/_utils/#database/tracks-inbox/{track_id})\n"
+                f"- [💾 Track]({base_url}/database/_utils/#database/library-tracks-v0001/{track_id})\n")
         )
 
     # ---------------------------------------------------------------------------- #
@@ -350,7 +350,8 @@ def process_track():
 
     @task(task_display_name="📦 Archive Inbox Track ⤵️")
     def run_archive_inbox_track_dag(
-        track_id: str
+        track_id: str,
+        **kwargs,
     ):
         lectorium.shared.actions.run_dag(
             task_id="archive_inbox_track",
@@ -359,7 +360,7 @@ def process_track():
             dag_run_id=get_dag_run_id(track_id, "archive_inbox_track"),
             dag_run_params={
                 "track_id": track_id,
-            }
+            }, **kwargs
         )
 
     # ---------------------------------------------------------------------------- #
