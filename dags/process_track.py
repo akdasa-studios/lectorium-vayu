@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
-from airflow.decorators import dag, task, teardown
-from airflow.models import DagRun, Param, Variable, TaskInstance
+from airflow.decorators import dag, task
+from airflow.models import DagRun, Param, Variable
 from airflow.utils.context import Context
-from pendulum import duration
 from airflow.operators.python import get_current_context
 
 import lectorium as lectorium
@@ -16,6 +15,10 @@ import services.claude as claude
 
 from lectorium.tracks import Track
 from lectorium.tracks_inbox import TrackInbox
+from lectorium.config import (
+    VAR_APP_BUCKET_NAME, VAR_APP_BUCKET_ACCESS_KEY, LECTORIUM_DATABASE_COLLECTIONS,
+    LECTORIUM_DATABASE_CONNECTION_STRING, LectoriumDatabaseCollections,
+)
 
 # ---------------------------------------------------------------------------- #
 #                                      DAG                                     #
@@ -30,10 +33,6 @@ from lectorium.tracks_inbox import TrackInbox
     dagrun_timeout=timedelta(minutes=60),
     default_args={
         "owner": "Advaita Krishna das",
-        # "retries": 3,
-        # "retry_exponential_backoff": True,
-        # "retry_delay": duration(seconds=30),
-        # "max_retry_delay": duration(hours=2),
     },
     render_template_as_native_obj=True,
     params={
@@ -64,38 +63,28 @@ from lectorium.tracks_inbox import TrackInbox
     },
 )
 def process_track():
-    pass
-
     # ---------------------------------------------------------------------------- #
     #                                    Config                                    #
     # ---------------------------------------------------------------------------- #
 
     track_id   = "{{ dag_run.conf['track_id'] }}"
     chunk_size = "{{ dag_run.conf['chunk_size'] | int }}"
-
-    app_bucket_name = (
-         Variable.get(lectorium.config.VAR_APP_BUCKET_NAME)
-    )
-
-    app_bucket_creds: lectorium.config.AppBucketAccessKey = (
-        Variable.get(
-            lectorium.config.VAR_APP_BUCKET_ACCESS_KEY,
-            deserialize_json=True
-        )
-    )
-
-    database_collections = (
-        Variable.get(
-            lectorium.config.LECTORIUM_DATABASE_COLLECTIONS,
-            deserialize_json=True
-        )
-    )
-
-    couchdb_connection_string = (
-        Variable.get(lectorium.config.LECTORIUM_DATABASE_CONNECTION_STRING)
-    )
-
     sign_url_timespan = 60 * 60 * 8 # 8 hours
+
+    app_bucket_name = Variable.get(VAR_APP_BUCKET_NAME)
+    app_bucket_creds = Variable.get(VAR_APP_BUCKET_ACCESS_KEY, deserialize_json=True)
+    database_connection_string = Variable.get(LECTORIUM_DATABASE_CONNECTION_STRING)
+    database_collections: LectoriumDatabaseCollections = (
+        Variable.get(LECTORIUM_DATABASE_COLLECTIONS, deserialize_json=True)
+    )
+
+    # ---------------------------------------------------------------------------- #
+    #                                    Helpers                                   #
+    # ---------------------------------------------------------------------------- #
+
+    def get_dag_run_id(track_id: str, dag_name: str, extra: list[str] = None) -> str:
+        current_datetime_string = datetime.now().strftime("%Y%m%d%H%M%S")
+        return f"{track_id}_{dag_name}_{'_'.join(((extra or []) + ['']))}{current_datetime_string}"
 
     # ---------------------------------------------------------------------------- #
     #                                   Language                                   #
@@ -113,101 +102,96 @@ def process_track():
     def get_language_to_translate_from(dag_run: DagRun):
         return dag_run.conf.get("languages_in_audio_file", [])[0]
 
-    languages_in_audio_file     = get_languages_in_audio_file()
-    languages_to_translate_into = get_languages_to_translate_into()
-
-
     # ---------------------------------------------------------------------------- #
     #                                Get Track Inbox                               #
     # ---------------------------------------------------------------------------- #
 
-    track_inbox = (
-        couchdb.get_document(
-            connection_string=couchdb_connection_string,
+    @task(task_display_name="📥 Get Track Inbox")
+    def get_track_inbox(
+        track_id: str
+    ) -> TrackInbox:
+        """Load track inbox document for track to be created."""
+        return couchdb.actions.get_document(
+            connection_string=database_connection_string,
             collection=database_collections["tracks_inbox"],
             document_id=track_id
         )
-    )
 
-    @task(
-        task_display_name="📝 Add Note")
+    # ---------------------------------------------------------------------------- #
+    #                                   Add Notes                                  #
+    # ---------------------------------------------------------------------------- #
+
+    @task(task_display_name="📝 Add Note")
     def add_note(
-        track_inbox: TrackInbox,
+        track_inbox: TrackInbox
     ):
+        """Add note to the DAG run."""
         context: Context = get_current_context()
         dag_run = context['dag_run']
         lectorium.shared.actions.set_dag_run_note(
             dag_run=dag_run,
             note=(
                 f"**Track ID**: `{track_inbox["_id"]}`<br>"
-                f"**Title**: {track_inbox["title"]['normalized']}")
+                f"**Title**: {track_inbox["title"]['normalized']}<br>"
+                f"**Source**: {track_inbox["source"]}")
         )
-
-    track_inbox >> add_note(track_inbox=track_inbox)
-
 
     # ---------------------------------------------------------------------------- #
     #                              Get Audio File Urls                             #
     # ---------------------------------------------------------------------------- #
 
-    @task(
-        task_display_name="✍️ Get File Urls")
+    @task(task_display_name="✍️ Get Audio File Urls")
     def get_audio_file_urls(
         track_id: str,
-        track_inbox_path: str,
+        track_source_path: str,
     ) -> dict:
         """Return local and signed urls for audio file."""
-        sign = (
-            lambda method, url: aws.actions.sign_url(
+        def sign(method: str, url: str):
+            return aws.actions.sign_url(
                 credentials=app_bucket_creds,
                 bucket_name=app_bucket_name,
                 object_key=url,
                 method=method,
                 expiration=sign_url_timespan)
-        )
 
         return {
             "local_original": f"library/audio/original/{track_id}.mp3",
             "local_processed": f"library/audio/normalized/{track_id}.mp3",
-            "signed_get_source": sign("get", track_inbox_path),
+            "signed_get_source": sign("get", track_source_path),
             "signed_put_original": sign("put", f"library/audio/original/{track_id}.mp3"),
             "signed_put_processed": sign("put", f"library/audio/normalized/{track_id}.mp3"),
             "signed_get_processed": sign("get", f"library/audio/normalized/{track_id}.mp3"),
         }
 
-    audio_file_paths = get_audio_file_urls(track_id=track_id, track_inbox_path=track_inbox["source"])
-
-
     # ---------------------------------------------------------------------------- #
     #                                 Process Audio                                #
     # ---------------------------------------------------------------------------- #
 
-    processed_audio = (
-        task(
-            task_display_name="🔊 Process Audio ⤵️",
-        )(
-            lectorium.shared.actions.run_dag
-        )(
+    @task(task_display_name="🔊 Process Audio ⤵️")
+    def run_process_audio_dag(
+        paths: dict,
+    ):
+        return lectorium.shared.actions.run_dag(
             task_id="process_audio",
             trigger_dag_id="process_audio",
             wait_for_completion=True,
             reset_dag_run=True,
+            dag_run_id=get_dag_run_id(track_id, "process_audio"),
             dag_run_params={
                 "track_id": track_id,
-                "path_source": audio_file_paths["signed_get_source"],
-                "path_original_dest": audio_file_paths["signed_put_original"],
-                "path_processed_dest": audio_file_paths["signed_put_processed"],
+                "path_source": paths["signed_get_source"],
+                "path_original_dest": paths["signed_put_original"],
+                "path_processed_dest": paths["signed_put_processed"],
             }
         )
-    )
-
-    track_inbox >> audio_file_paths >> processed_audio
 
     # ---------------------------------------------------------------------------- #
     #                              Extract Transcripts                             #
     # ---------------------------------------------------------------------------- #
 
-    @task(task_display_name="📜 Extract Transcripts ⤵️")
+    @task(
+        task_display_name="📜 Extract Transcripts ⤵️",
+        map_index_template="{{ task.op_kwargs['language'] }}")
     def extract_transcript(
         track_id: str,
         audio_file_url: str,
@@ -219,6 +203,7 @@ def process_track():
             trigger_dag_id="extract_transcript",
             wait_for_completion=True,
             reset_dag_run=True,
+            dag_run_id=get_dag_run_id(track_id, "extract_transcript", [language]),
             dag_run_params={
                 "track_id": track_id,
                 "url": audio_file_url,
@@ -226,23 +211,13 @@ def process_track():
             }, **kwargs
         )
 
-    extracted_transcripts = (
-        extract_transcript
-            .partial(
-                track_id=track_id,
-                audio_file_url=audio_file_paths["signed_get_processed"])
-            .expand(
-                language=languages_in_audio_file)
-    )
-
-    processed_audio >> extracted_transcripts
-
     # ---------------------------------------------------------------------------- #
     #                             Proofread Transcript                             #
     # ---------------------------------------------------------------------------- #
 
-    @task( # TODO add task map index
-        task_display_name="📜 Proofread Transcripts ⤵️")
+    @task(
+        task_display_name="📜 Proofread Transcripts ⤵️",
+        map_index_template="{{ task.op_kwargs['language'] }}")
     def proofread_transcript(
         track_id: str,
         language: str,
@@ -254,6 +229,7 @@ def process_track():
             trigger_dag_id="proofread_transcript",
             wait_for_completion=True,
             reset_dag_run=True,
+            dag_run_id=get_dag_run_id(track_id, "proofread_transcript", [language]),
             dag_run_params={
                 "track_id": track_id,
                 "language": language,
@@ -261,23 +237,13 @@ def process_track():
             }, **kwargs
         )
 
-    proofread_transcripts = (
-        proofread_transcript
-            .partial(
-                track_id=track_id,
-                chunk_size=chunk_size)
-            .expand(
-                language=languages_in_audio_file)
-    )
-
-    extracted_transcripts >> proofread_transcripts
-
     # ---------------------------------------------------------------------------- #
     #                             Translate Transcript                             #
     # ---------------------------------------------------------------------------- #
 
-    @task( # TODO add task map index
-        task_display_name="📜 Translate Transcripts ⤵️")
+    @task(
+        task_display_name="📜 Translate Transcripts ⤵️",
+        map_index_template="{{ task.op_kwargs['language_to_translate_into'] }}")
     def translate_transcript(
         track_id: str,
         language_to_translate_from: str,
@@ -290,6 +256,9 @@ def process_track():
             trigger_dag_id="translate_transcript",
             wait_for_completion=True,
             reset_dag_run=True,
+            dag_run_id=get_dag_run_id(
+                            track_id, "translate_transcript",
+                            [language_to_translate_from, language_to_translate_into]),
             dag_run_params={
                 "track_id": track_id,
                 "language_to_translate_from": language_to_translate_from,
@@ -297,18 +266,6 @@ def process_track():
                 "chunk_size": chunk_size,
             }, **kwargs
         )
-
-    translated_transcripts = (
-        translate_transcript
-            .partial(
-                track_id=track_id,
-                language_to_translate_from=get_language_to_translate_from(),
-                chunk_size=chunk_size)
-            .expand(
-                language_to_translate_into=languages_to_translate_into)
-    )
-
-    proofread_transcripts >> translated_transcripts
 
     # ---------------------------------------------------------------------------- #
     #                                Translate Title                               #
@@ -326,18 +283,22 @@ def process_track():
             user_message=track_inbox["title"]["normalized"])
 
 
-    translated_titles = (
-        translate_title
-            .partial(track_inbox=track_inbox)
-            .expand(language=languages_to_translate_into)
-    )
-
     # ---------------------------------------------------------------------------- #
     #                                  Save Track                                  #
     # ---------------------------------------------------------------------------- #
 
-    track_document = (
-        lectorium.tracks.prepare_track_document(
+    @task(
+        task_display_name="💾 Save Track",
+        trigger_rule="none_failed")
+    def save_track(
+        track_id: str,
+        track_inbox: TrackInbox,
+        audio_file_paths: dict,
+        languages_in_audio_file: list[str],
+        languages_to_translate_into: list[str],
+        translated_titles: list[str],
+    ):
+        track_document = lectorium.tracks.prepare_track_document(
             track_id=track_id,
             inbox_track=track_inbox,
             audio_file_original_url=audio_file_paths["local_original"],
@@ -345,69 +306,57 @@ def process_track():
             languages_in_audio_file=languages_in_audio_file,
             languages_to_translate_into=languages_to_translate_into,
             translated_titles=languages_to_translate_into.zip(translated_titles))
-    )
 
-    saved_document = (
-        couchdb.save_document(
-            connection_string=couchdb_connection_string,
+        couchdb.actions.save_document(
+            connection_string=database_connection_string,
             collection=database_collections["tracks"],
             document=track_document)
-    )
 
-    translated_transcripts >> track_document >> saved_document
-
-
-    # ------------------------------- Update Index ------------------------------- #
+    # ---------------------------------------------------------------------------- #
+    #                                 Update Index                                 #
+    # ---------------------------------------------------------------------------- #
 
     @task(
         task_display_name="🔍 Update Search Index ⤵️",
         map_index_template="{{ task.op_kwargs['language'] }}")
-    def update_index(track_id: str, language: str, **kwargs):
+    def update_index(
+        track_id: str,
+        language: str,
+        **kwargs
+    ):
         lectorium.shared.actions.run_dag(
             task_id="update_serach_index",
             trigger_dag_id="update_search_index",
             wait_for_completion=True,
             reset_dag_run=True,
+            dag_run_id=get_dag_run_id(track_id, "update_search_index", [language]),
             dag_run_params={
                 "track_id": track_id,
                 "language": language,
             }, **kwargs
         )
 
-    updated_index = (
-        update_index
-            .partial(track_id=track_id)
-            .expand(language=languages_in_audio_file.concat(languages_to_translate_into))
-    )
-
     # ---------------------------------------------------------------------------- #
     #                              Archive Inbox Track                             #
     # ---------------------------------------------------------------------------- #
 
-    archived_inbox_track = (
-        task(
-            task_display_name="📦 Archive Inbox Track ⤵️"
-        )(
-            lectorium.shared.actions.run_dag
-        )(
+    @task(task_display_name="📦 Archive Inbox Track ⤵️")
+    def run_archive_inbox_track_dag(
+        track_id: str
+    ):
+        lectorium.shared.actions.run_dag(
             task_id="archive_inbox_track",
             trigger_dag_id="archive_inbox_track",
             wait_for_completion=True,
+            dag_run_id=get_dag_run_id(track_id, "archive_inbox_track"),
             dag_run_params={
                 "track_id": track_id,
             }
         )
-    )
-
-    saved_document >> updated_index >> archived_inbox_track
 
     # ---------------------------------------------------------------------------- #
     #                                     Done                                     #
     # ---------------------------------------------------------------------------- #
-
-    @task(task_display_name="📧 Notify")
-    def notify(track_id: str):
-        pass
 
     @task(
         task_display_name="🎉 Update Track Inbox State")
@@ -417,7 +366,7 @@ def process_track():
     ):
         # Load track inbox document for specified track
         track_inbox: TrackInbox = couchdb.actions.get_document(
-            connection_string=couchdb_connection_string,
+            connection_string=database_connection_string,
             collection=database_collections["tracks_inbox"],
             document_id=track_id)
 
@@ -426,12 +375,77 @@ def process_track():
 
         # Save updated track inbox document
         couchdb.actions.save_document(
-            connection_string=couchdb_connection_string,
+            connection_string=database_connection_string,
             collection=database_collections["tracks_inbox"],
             document=track_inbox)
 
 
-    archived_inbox_track >> notify(track_id) >> teardown_task(track_id, saved_document).as_teardown()
+    # ---------------------------------------------------------------------------- #
+    #                                     Flow                                     #
+    # ---------------------------------------------------------------------------- #
 
+    (
+        (
+            track_inbox := get_track_inbox(track_id=track_id)
+        ) >> (
+            audio_file_paths :=
+                get_audio_file_urls(
+                    track_id=track_id,
+                    track_source_path=track_inbox["source"])
+        ) >> (
+            run_process_audio_dag(audio_file_paths)
+        ) >> [
+            (languages_in_audio_file     := get_languages_in_audio_file()),
+            (languages_to_translate_into := get_languages_to_translate_into())
+        ] >> (
+            extract_transcript
+                .partial(
+                    track_id=track_id,
+                    audio_file_url=audio_file_paths["signed_get_processed"])
+                .expand(
+                    language=languages_in_audio_file)
+        ) >> (
+            proofread_transcript
+                .partial(
+                    track_id=track_id,
+                    chunk_size=chunk_size)
+                .expand(
+                    language=languages_in_audio_file)
+        ) >> [
+            (
+                translate_transcript
+                    .partial(
+                        track_id=track_id,
+                        language_to_translate_from=get_language_to_translate_from(),
+                        chunk_size=chunk_size)
+                    .expand(
+                        language_to_translate_into=languages_to_translate_into)
+            ) , (
+                translated_titles := translate_title
+                    .partial(track_inbox=track_inbox)
+                    .expand(language=languages_to_translate_into)
+            )
+        ] >> (
+            saved_document := save_track(
+                track_id=track_id,
+                track_inbox=track_inbox,
+                audio_file_paths=audio_file_paths,
+                languages_in_audio_file=languages_in_audio_file,
+                languages_to_translate_into=languages_to_translate_into,
+                translated_titles=translated_titles)
+        ) >> (
+            update_index
+                .partial(track_id=track_id)
+                .expand(language=languages_in_audio_file.concat(languages_to_translate_into))
+        ) >> (
+            run_archive_inbox_track_dag(track_id)
+        ) >> (
+            teardown_task(track_id, saved_document).as_teardown()
+        )
+    )
+
+    (
+        add_note(track_inbox=track_inbox)
+    )
 
 process_track()

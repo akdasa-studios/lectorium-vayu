@@ -4,9 +4,9 @@ from lectorium.tracks_inbox.models.track_inbox import TrackInbox
 from lectorium.tracks.models.track import Track
 
 
-@task(
-    task_display_name="💾 Prepare Track",
-    trigger_rule="none_failed")
+# @task(
+#     task_display_name="💾 Prepare Track",
+#     trigger_rule="none_failed")
 def prepare_track_document(
     track_id: str,
     inbox_track: TrackInbox,
