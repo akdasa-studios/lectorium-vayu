@@ -17,7 +17,7 @@ from lectorium.tracks import Track
 from lectorium.tracks_inbox import TrackInbox
 from lectorium.config import (
     VAR_APP_BUCKET_NAME, VAR_APP_BUCKET_ACCESS_KEY, LECTORIUM_DATABASE_COLLECTIONS,
-    LECTORIUM_DATABASE_CONNECTION_STRING, LectoriumDatabaseCollections,
+    LECTORIUM_DATABASE_CONNECTION_STRING, BASE_URL, LectoriumDatabaseCollections,
 )
 
 # ---------------------------------------------------------------------------- #
@@ -126,6 +126,9 @@ def process_track():
         track_inbox: TrackInbox
     ):
         """Add note to the DAG run."""
+        base_url = Variable.get(BASE_URL)
+        track_id = track_inbox["_id"]
+
         context: Context = get_current_context()
         dag_run = context['dag_run']
         lectorium.shared.actions.set_dag_run_note(
@@ -133,7 +136,9 @@ def process_track():
             note=(
                 f"### `{track_inbox["_id"]}`\n\n"
                 f"**Title**: {track_inbox["title"]['normalized']}\n\n"
-                f"**Source**: {track_inbox["source"]}")
+                f"**Source**: {track_inbox["source"]}\n\n\n\n"
+                f"[📥 Inbox]({base_url}/database/_utils/#database/tracks-inbox/{track_id})"
+                f"[💾 Track]({base_url}/database/_utils/#database/library-tracks-v0001/{track_id})")
         )
 
     # ---------------------------------------------------------------------------- #
@@ -275,7 +280,8 @@ def process_track():
 
     @task(
         task_display_name="📜 Translate Titles",
-        map_index_template="{{ task.op_kwargs['language'] }}")
+        map_index_template="{{ task.op_kwargs['language'] }}",
+        max_retry=3, retry_delay=timedelta(minutes=2))
     def translate_title(
         track_inbox: lectorium.tracks_inbox.TrackInbox,
         language: str,

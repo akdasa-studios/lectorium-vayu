@@ -4,7 +4,6 @@ from datetime import datetime, timedelta
 
 from airflow.decorators import dag, task
 from airflow.models import Variable
-from pendulum import duration
 
 import services.couchdb as couchdb
 import lectorium as lectorium
@@ -17,7 +16,7 @@ import lectorium as lectorium
 @dag(
     dag_display_name="📨 Inbox: Start Processing Tracks",
     description="Starts Processing tracks in 'ready' state",
-    schedule=None, #"@hourly",
+    schedule="@hourly",
     start_date=datetime(2021, 1, 1),
     catchup=False,
     tags=["lectorium", "inbox", "tracks"],
