@@ -64,7 +64,7 @@ def bake_database_for_app():
         image='ghcr.io/akdasa-studios/lectorium-tools-bake-database',
         command='node index.js',
         docker_url='unix://var/run/docker.sock',
-        network_mode='host',
+        network_mode='lectorium',
         mounts=[
             Mount(source='/tmp/lectorium', target='/tools/artifacts', type='bind')
         ],
