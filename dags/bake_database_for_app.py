@@ -3,10 +3,11 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from airflow.providers.docker.operators.docker import DockerOperator
 
-from airflow.decorators import dag, task
+from airflow.decorators import dag
 from airflow.models import Variable
 from docker.types import Mount
 
+from lectorium.config import LECTORIUM_DATABASE_CONNECTION_STRING
 import lectorium as lectorium
 import services.aws as aws
 
@@ -35,9 +36,8 @@ def bake_database_for_app():
     #                                    Config                                    #
     # ---------------------------------------------------------------------------- #
 
-    app_bucket_name = (
-         Variable.get(lectorium.config.VAR_APP_BUCKET_NAME)
-    )
+    app_bucket_name = Variable.get(lectorium.config.VAR_APP_BUCKET_NAME)
+    database_connection_string = Variable.get(LECTORIUM_DATABASE_CONNECTION_STRING)
 
     app_bucket_creds: lectorium.config.AppBucketAccessKey = (
         Variable.get(
@@ -69,7 +69,7 @@ def bake_database_for_app():
             Mount(source='/tmp/lectorium', target='/tools/artifacts', type='bind')
         ],
         environment={
-            'DATABASE_URI': 'https://lectorium:!DVxqv-aj_wW4kCXC*TdbYk*EHk6rDqD@app.lectorium.akdasa.studio/database/',
+            'DATABASE_URI': database_connection_string,
         },
     )
 
