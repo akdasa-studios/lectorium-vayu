@@ -285,10 +285,11 @@ def process_track():
     def translate_title(
         track_inbox: lectorium.tracks_inbox.TrackInbox,
         language: str,
-    ):
-        return claude.actions.execute_prompt(
+    ) -> tuple[str, str]:
+        response = claude.actions.execute_prompt(
             user_message_prefix=f"Translate into '{language}'. Return only translation, no extra messages: ",
             user_message=track_inbox["title"]["normalized"])
+        return (language, response)
 
 
     # ---------------------------------------------------------------------------- #
@@ -304,7 +305,7 @@ def process_track():
         audio_file_paths: dict,
         languages_in_audio_file: list[str],
         languages_to_translate_into: list[str],
-        translated_titles: tuple[str, str],
+        translated_titles: list[tuple[str, str]] | None,
     ):
         track_document = lectorium.tracks.prepare_track_document(
             track_id=track_id,
@@ -441,7 +442,7 @@ def process_track():
                 audio_file_paths=audio_file_paths,
                 languages_in_audio_file=languages_in_audio_file,
                 languages_to_translate_into=languages_to_translate_into,
-                translated_titles=languages_to_translate_into.zip(translated_titles))
+                translated_titles=translated_titles)
         ) >> (
             update_index
                 .partial(track_id=track_id)
