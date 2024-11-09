@@ -145,7 +145,7 @@ def translate_transcript():
         language: str,
     ):
         # Get the track document from the database to update the languages field
-        track_document: Track = services.couchdb.get_document(
+        track_document: Track = services.couchdb.actions.get_document(
             connection_string=couchdb_connection_string,
             collection=database_collections['tracks'],
             document_id=track_id)
@@ -173,7 +173,7 @@ def translate_transcript():
             "type": "generated",
         })
 
-        return services.couchdb.save_document(
+        return services.couchdb.actions.save_document(
             connection_string=couchdb_connection_string,
             collection=database_collections['tracks'],
             document=track_document,
