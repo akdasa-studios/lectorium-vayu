@@ -1,6 +1,12 @@
 from typing import TypedDict
 
 
+class TrackLanguage(TypedDict):
+    language: str
+    source: str # track | transcript
+    type: str # original | generated
+
+
 class Track(TypedDict):
     _id: str
     urs: str
@@ -12,6 +18,7 @@ class Track(TypedDict):
     file_size: int
     duration: int
     references: list[list[str|int]]
-    languages: list[dict[str, str]]
+    languages: list[TrackLanguage]
+
 
 
