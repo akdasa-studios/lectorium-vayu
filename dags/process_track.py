@@ -275,7 +275,7 @@ def process_track():
 
     @task(
         task_display_name="📜 Translate Track ⤵️",
-        map_index_template="{{ task.op_kwargs['language'] }}")
+        map_index_template="{{ task.op_kwargs['language_to_translate_into'] }}")
     def run_translate_track_dag(
         track_id: str,
         language_to_translate_from: str,
