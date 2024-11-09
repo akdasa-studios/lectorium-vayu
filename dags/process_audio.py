@@ -135,7 +135,8 @@ def process_audio():
 
     process_file = (
        task(
-            task_display_name="🔊 Process Audio File"
+            task_display_name="🔊 Process Audio File",
+            pool="vakshuddhi::process-audio"
         )(
             ssh.actions.run_commands
         )(
