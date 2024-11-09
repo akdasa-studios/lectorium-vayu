@@ -56,7 +56,6 @@ import lectorium as lectorium
         ),
     },
     render_template_as_native_obj=True,
-    max_active_runs=10,
 )
 def add_to_tracks_inbox():
     # ---------------------------------------------------------------------------- #
