@@ -31,6 +31,7 @@ from lectorium.config import (
     tags=["lectorium", "tracks"],
     dag_display_name="▶️ Track: Process",
     dagrun_timeout=timedelta(minutes=60),
+    max_active_runs=3,
     default_args={
         "owner": "Advaita Krishna das",
     },
