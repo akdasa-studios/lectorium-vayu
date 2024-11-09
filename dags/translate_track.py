@@ -101,7 +101,7 @@ def translate_track():
 
     @task(
         task_display_name="📜 Translate Title",
-        map_index_template="{{ task.op_kwargs['language'] }}",
+        map_index_template="{{ task.op_kwargs['language_to'] }}",
         retries=3, retry_delay=timedelta(minutes=1))
     def translate_title(
         track_id: str,
@@ -123,7 +123,7 @@ def translate_track():
     # ---------------------------------------------------------------------------- #
 
     @task(
-        task_display_name="Update Track Document",
+        task_display_name="📜 Update Track Document",
         retries=3, retry_delay=timedelta(minutes=1))
     def update_track_document(
         track_id: str,
