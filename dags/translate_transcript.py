@@ -130,7 +130,7 @@ def translate_transcript():
     saved_document = (
         services.couchdb.save_document(
             connection_string=couchdb_connection_string,
-            collection=database_collections,
+            collection=database_collections["transcripts"],
             document=transcript_translated,
             document_id=transcript_translated_id)
     )
