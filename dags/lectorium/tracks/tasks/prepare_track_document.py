@@ -13,8 +13,6 @@ def prepare_track_document(
     audio_file_original_url: str,
     audio_file_normalized_url: str,
     languages_in_audio_file: list[str],
-    languages_to_translate_into: list[str],
-    translated_titles: list[tuple[str, str]] | None,
 ) -> Track:
     date_to_save = inbox_track["date"].get("normalized", []) or []
     date_to_save = list(filter(None, date_to_save)) or None
@@ -29,9 +27,6 @@ def prepare_track_document(
         "title": {
             lang: inbox_track["title"]["normalized"]
             for lang in languages_in_audio_file
-        } | {
-            lang: translated_titles
-            for (lang, translated_titles) in translated_titles or []
         },
         "location": inbox_track["location"]["normalized"],
         "date": date_to_save,
@@ -46,9 +41,6 @@ def prepare_track_document(
             ] + [ # original language in audio file for which transcript is generated
                 {"language": lang, "source": "transcript", "type": "generated"}
                 for lang in languages_in_audio_file
-            ] + [ # translated transcripts
-                {"language": lang, "source": "transcript", "type": "generated"}
-                for lang in languages_to_translate_into
             ]
     }
 

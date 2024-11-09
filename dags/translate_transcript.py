@@ -2,8 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
-from airflow.decorators import dag, task
-from airflow.exceptions import AirflowSkipException
+from airflow.decorators import dag
 from airflow.models import Param, Variable
 from pendulum import duration
 
@@ -135,51 +134,6 @@ def translate_transcript():
             document_id=transcript_translated_id)
     )
 
-    # ---------------------------------------------------------------------------- #
-    #                             Update Track Document                            #
-    # ---------------------------------------------------------------------------- #
-
-    @task(task_display_name="Update Track Document", retries=2)
-    def update_track_document(
-        track_id: str,
-        language: str,
-    ):
-        # Get the track document from the database to update the languages field
-        track_document: Track = services.couchdb.actions.get_document(
-            connection_string=couchdb_connection_string,
-            collection=database_collections['tracks'],
-            document_id=track_id)
-
-        # Document not found. It may not have been created yet. Skip the task.
-        if track_document is None:
-            raise AirflowSkipException("Track document not found.")
-
-        # Check if the language already exists in the languages field
-        genetared_transcripts_for_language = filter(
-            lambda l:
-                l["language"] == language and
-                l["source"] == "transcript" and
-                l["type"] == "generated",
-            track_document["languages"]
-        )
-        if len(list(genetared_transcripts_for_language)) > 0:
-            raise AirflowSkipException("Language already exists in the track document.")
-
-        # Add the language to the languages field in the track document
-        # and save the document back to the database
-        track_document["languages"].append({
-            "language": language,
-            "source": "transcript",
-            "type": "generated",
-        })
-
-        return services.couchdb.actions.save_document(
-            connection_string=couchdb_connection_string,
-            collection=database_collections['tracks'],
-            document=track_document,
-            document_id=track_id
-        )
-
     # ---------------------------------- Notify ---------------------------------- #
 
     notification = (
@@ -190,8 +144,6 @@ def translate_transcript():
             transcript_proofread=transcript_translated)
     )
 
-    saved_document >> update_track_document(track_id, language_to_translate_into)
     saved_document >> notification
-
 
 translate_transcript()

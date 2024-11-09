@@ -29,7 +29,7 @@ from lectorium.config import (
     start_date=datetime(2021, 1, 1),
     catchup=False,
     tags=["lectorium", "tracks"],
-    dag_display_name="▶️ Process Track",
+    dag_display_name="▶️ Track: Process",
     dagrun_timeout=timedelta(minutes=60),
     default_args={
         "owner": "Advaita Krishna das",
@@ -245,54 +245,6 @@ def process_track():
         )
 
     # ---------------------------------------------------------------------------- #
-    #                             Translate Transcript                             #
-    # ---------------------------------------------------------------------------- #
-
-    @task(
-        task_display_name="📜 Translate Transcripts ⤵️",
-        map_index_template="{{ task.op_kwargs['language_to_translate_into'] }}")
-    def translate_transcript(
-        track_id: str,
-        language_to_translate_from: str,
-        language_to_translate_into: str,
-        chunk_size: int,
-        **kwargs,
-    ):
-        lectorium.shared.actions.run_dag(
-            task_id="translate_transcript",
-            trigger_dag_id="translate_transcript",
-            wait_for_completion=True,
-            reset_dag_run=True,
-            dag_run_id=get_dag_run_id(
-                            track_id, "translate_transcript",
-                            [language_to_translate_from, language_to_translate_into]),
-            dag_run_params={
-                "track_id": track_id,
-                "language_to_translate_from": language_to_translate_from,
-                "language_to_translate_into": language_to_translate_into,
-                "chunk_size": chunk_size,
-            }, **kwargs
-        )
-
-    # ---------------------------------------------------------------------------- #
-    #                                Translate Title                               #
-    # ---------------------------------------------------------------------------- #
-
-    @task(
-        task_display_name="📜 Translate Titles",
-        map_index_template="{{ task.op_kwargs['language'] }}",
-        retries=3, retry_delay=timedelta(minutes=1))
-    def translate_title(
-        track_inbox: lectorium.tracks_inbox.TrackInbox,
-        language: str,
-    ) -> tuple[str, str]:
-        response = claude.actions.execute_prompt(
-            user_message_prefix=f"Translate into '{language}'. Return only translation, no extra messages: ",
-            user_message=track_inbox["title"]["normalized"])
-        return (language, response)
-
-
-    # ---------------------------------------------------------------------------- #
     #                                  Save Track                                  #
     # ---------------------------------------------------------------------------- #
 
@@ -304,22 +256,45 @@ def process_track():
         track_inbox: TrackInbox,
         audio_file_paths: dict,
         languages_in_audio_file: list[str],
-        languages_to_translate_into: list[str],
-        translated_titles: list[tuple[str, str]] | None,
     ):
         track_document = lectorium.tracks.prepare_track_document(
             track_id=track_id,
             inbox_track=track_inbox,
             audio_file_original_url=audio_file_paths["local_original"],
             audio_file_normalized_url=audio_file_paths["local_processed"],
-            languages_in_audio_file=languages_in_audio_file,
-            languages_to_translate_into=languages_to_translate_into,
-            translated_titles=translated_titles)
+            languages_in_audio_file=languages_in_audio_file)
 
         return couchdb.actions.save_document(
             connection_string=database_connection_string,
             collection=database_collections["tracks"],
             document=track_document)
+
+    # ---------------------------------------------------------------------------- #
+    #                                Translate Track                               #
+    # ---------------------------------------------------------------------------- #
+
+    @task(
+        task_display_name="📜 Translate Track ⤵️",
+        map_index_template="{{ task.op_kwargs['language'] }}")
+    def run_translate_track_dag(
+        language_to_translate_from: str,
+        language_to_translate_into: str,
+        **kwargs,
+    ) -> tuple[str, str]:
+        lectorium.shared.actions.run_dag(
+            task_id="translate_track",
+            trigger_dag_id="translate_track",
+            wait_for_completion=True,
+            reset_dag_run=True,
+            dag_run_id=get_dag_run_id(
+                            track_id, "translate_track",
+                            [language_to_translate_from, language_to_translate_into]),
+            dag_run_params={
+                "track_id": track_id,
+                "language_to_translate_from": language_to_translate_from,
+                "language_to_translate_into": language_to_translate_into,
+            }, **kwargs
+        )
 
     # ---------------------------------------------------------------------------- #
     #                                 Update Index                                 #
@@ -406,7 +381,8 @@ def process_track():
             run_process_audio_dag(track_id, audio_file_paths)
         ) >> [
             (languages_in_audio_file     := get_languages_in_audio_file()),
-            (languages_to_translate_into := get_languages_to_translate_into())
+            (languages_to_translate_into := get_languages_to_translate_into()),
+            (language_to_translate_from  := get_language_to_translate_from()),
         ] >> (
             extract_transcript
                 .partial(
@@ -421,28 +397,19 @@ def process_track():
                     chunk_size=chunk_size)
                 .expand(
                     language=languages_in_audio_file)
-        ) >> [
-            (
-                translate_transcript
-                    .partial(
-                        track_id=track_id,
-                        language_to_translate_from=get_language_to_translate_from(),
-                        chunk_size=chunk_size)
-                    .expand(
-                        language_to_translate_into=languages_to_translate_into)
-            ) , (
-                translated_titles := translate_title
-                    .partial(track_inbox=track_inbox)
-                    .expand(language=languages_to_translate_into)
-            )
-        ] >> (
+        ) >> (
             saved_document := save_track(
                 track_id=track_id,
                 track_inbox=track_inbox,
                 audio_file_paths=audio_file_paths,
-                languages_in_audio_file=languages_in_audio_file,
-                languages_to_translate_into=languages_to_translate_into,
-                translated_titles=translated_titles)
+                languages_in_audio_file=languages_in_audio_file)
+        ) >> (
+            run_translate_track_dag
+                .partial(
+                    track_id=track_id,
+                    language_to_translate_from=language_to_translate_from)
+                .expand(
+                    language_to_translate_into=languages_to_translate_into)
         ) >> (
             update_index
                 .partial(track_id=track_id)
