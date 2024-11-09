@@ -23,6 +23,7 @@ import lectorium as lectorium
     description="Adds new file to the tracks inbox",
     schedule=None, # duration(minutes=5),
     start_date=datetime(2021, 1, 1),
+    max_active_runs=1,
     catchup=False,
     tags=["lectorium", "inbox"],
     dagrun_timeout=timedelta(minutes=60),

@@ -23,6 +23,7 @@ import lectorium as lectorium
     catchup=False,
     tags=["lectorium", "tracks"],
     dagrun_timeout=timedelta(minutes=60),
+    max_active_runs=1,
     default_args={
         "owner": "Advaita Krishna das",
         "retries": 3,
