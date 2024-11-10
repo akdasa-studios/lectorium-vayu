@@ -11,7 +11,6 @@ import lectorium as lectorium
 import lectorium.tracks_inbox
 import services.couchdb as couchdb
 import services.aws as aws
-import services.claude as claude
 
 from lectorium.tracks import Track
 from lectorium.tracks_inbox import TrackInbox
@@ -70,7 +69,6 @@ def process_track():
 
     track_id   = "{{ dag_run.conf['track_id'] }}"
     chunk_size = "{{ dag_run.conf['chunk_size'] | int }}"
-    sign_url_timespan = 60 * 60 * 8 # 8 hours
 
     app_bucket_name = Variable.get(VAR_APP_BUCKET_NAME)
     app_bucket_creds = Variable.get(VAR_APP_BUCKET_ACCESS_KEY, deserialize_json=True)
@@ -86,6 +84,18 @@ def process_track():
     def get_dag_run_id(track_id: str, dag_name: str, extra: list[str] = None) -> str:
         current_datetime_string = datetime.now().strftime("%Y%m%d%H%M%S")
         return f"{track_id}_{dag_name}_{'_'.join(((extra or []) + ['']))}{current_datetime_string}"
+
+    # ---------------------------------------------------------------------------- #
+    #                                    Helpers                                   #
+    # ---------------------------------------------------------------------------- #
+
+    def sign_url(method: str, url: str):
+        return aws.actions.sign_url(
+            credentials=app_bucket_creds,
+            bucket_name=app_bucket_name,
+            object_key=url,
+            method=method.lower(),
+            expiration=60*10)
 
     # ---------------------------------------------------------------------------- #
     #                                   Language                                   #
@@ -143,57 +153,6 @@ def process_track():
         )
 
     # ---------------------------------------------------------------------------- #
-    #                              Get Audio File Urls                             #
-    # ---------------------------------------------------------------------------- #
-
-    @task(task_display_name="✍️ Get Audio File Urls")
-    def get_audio_file_urls(
-        track_id: str,
-        track_source_path: str,
-    ) -> dict:
-        """Return local and signed urls for audio file."""
-        def sign(method: str, url: str):
-            return aws.actions.sign_url(
-                credentials=app_bucket_creds,
-                bucket_name=app_bucket_name,
-                object_key=url,
-                method=method,
-                expiration=sign_url_timespan)
-
-        return {
-            "local_original": f"library/audio/original/{track_id}.mp3",
-            "local_processed": f"library/audio/normalized/{track_id}.mp3",
-            "signed_get_source": sign("get", track_source_path),
-            "signed_put_original": sign("put", f"library/audio/original/{track_id}.mp3"),
-            "signed_put_processed": sign("put", f"library/audio/normalized/{track_id}.mp3"),
-            "signed_get_processed": sign("get", f"library/audio/normalized/{track_id}.mp3"),
-        }
-
-    # ---------------------------------------------------------------------------- #
-    #                                 Process Audio                                #
-    # ---------------------------------------------------------------------------- #
-
-    @task(task_display_name="🔊 Process Audio ⤵️")
-    def run_process_audio_dag(
-        track_id: str,
-        paths: dict,
-        **kwargs,
-    ):
-        return lectorium.shared.actions.run_dag(
-            task_id="process_audio",
-            trigger_dag_id="process_audio",
-            wait_for_completion=True,
-            reset_dag_run=True,
-            dag_run_id=get_dag_run_id(track_id, "process_audio"),
-            dag_run_params={
-                "track_id": track_id,
-                "path_source": paths["signed_get_source"],
-                "path_original_dest": paths["signed_put_original"],
-                "path_processed_dest": paths["signed_put_processed"],
-            }, **kwargs
-        )
-
-    # ---------------------------------------------------------------------------- #
     #                              Extract Transcripts                             #
     # ---------------------------------------------------------------------------- #
 
@@ -202,10 +161,11 @@ def process_track():
         map_index_template="{{ task.op_kwargs['language'] }}")
     def extract_transcript(
         track_id: str,
-        audio_file_url: str,
         language: str,
         **kwargs,
     ):
+        audio_file_url = sign_url("get", f"library/audio/normalized/{track_id}.mp3")
+
         lectorium.shared.actions.run_dag(
             task_id="extract_transcript",
             trigger_dag_id="extract_transcript",
@@ -253,16 +213,18 @@ def process_track():
         task_display_name="💾 Save Track",
         trigger_rule="none_failed")
     def save_track(
-        track_id: str,
         track_inbox: TrackInbox,
-        audio_file_paths: dict,
         languages_in_audio_file: list[str],
     ):
+        track_id = track_inbox["_id"]
+        s3_original = f"library/audio/original/{track_id}.mp3"
+        s3_processed = f"library/audio/normalized/{track_id}.mp3"
+
         track_document = lectorium.tracks.prepare_track_document(
             track_id=track_id,
             inbox_track=track_inbox,
-            audio_file_original_url=audio_file_paths["local_original"],
-            audio_file_normalized_url=audio_file_paths["local_processed"],
+            audio_file_original_url=s3_original,
+            audio_file_normalized_url=s3_processed,
             languages_in_audio_file=languages_in_audio_file)
 
         return couchdb.actions.save_document(
@@ -359,6 +321,7 @@ def process_track():
 
         # Update track inbox document status
         track_inbox["status"] = "done" if saved_track else "error"
+        track_inbox["tasks"]["process_track"] = "done"
 
         # Save updated track inbox document
         couchdb.actions.save_document(
@@ -374,24 +337,14 @@ def process_track():
     (
         (
             track_inbox := get_track_inbox(track_id=track_id)
-        ) >> (
-            audio_file_paths :=
-                get_audio_file_urls(
-                    track_id=track_id,
-                    track_source_path=track_inbox["source"])
-        ) >> (
-            run_process_audio_dag(track_id, audio_file_paths)
         ) >> [
             (languages_in_audio_file     := get_languages_in_audio_file()),
             (languages_to_translate_into := get_languages_to_translate_into()),
             (language_to_translate_from  := get_language_to_translate_from()),
         ] >> (
             extract_transcript
-                .partial(
-                    track_id=track_id,
-                    audio_file_url=audio_file_paths["signed_get_processed"])
-                .expand(
-                    language=languages_in_audio_file)
+                .partial(track_id=track_id)
+                .expand(language=languages_in_audio_file)
         ) >> (
             proofread_transcript
                 .partial(
@@ -401,9 +354,7 @@ def process_track():
                     language=languages_in_audio_file)
         ) >> (
             saved_document := save_track(
-                track_id=track_id,
                 track_inbox=track_inbox,
-                audio_file_paths=audio_file_paths,
                 languages_in_audio_file=languages_in_audio_file)
         ) >> (
             run_translate_track_dag

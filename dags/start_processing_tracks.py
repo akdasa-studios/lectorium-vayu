@@ -4,10 +4,12 @@ from datetime import datetime, timedelta
 
 from airflow.decorators import dag, task
 from airflow.models import Variable
+from airflow.exceptions import AirflowSkipException
 
 import services.couchdb as couchdb
 import lectorium as lectorium
 
+from lectorium.tracks_inbox import TrackInbox
 
 # ---------------------------------------------------------------------------- #
 #                                      DAG                                     #
@@ -50,47 +52,46 @@ def start_processing_tracks():
                     { "archived": { "$eq": "" } }
                 ]
             },
-            {
-                "status": { "$in": [ "ready" ] }
-            }
+            { "status": "ready" },
+            { "tasks.process_audio": "done" },
+            { "tasks.process_track": { "$exists": False } }
         ]
     }
 
 
     # ---------------------------------------------------------------------------- #
-    #                                     Steps                                    #
+    #                             Get Tracks To Process                            #
     # ---------------------------------------------------------------------------- #
 
-    # --------------------- Get Documents To Start Processing -------------------- #
 
-    track_inbox_documents = (
-        couchdb.find_documents(
+    @task(task_display_name="📨 Get Tracks To Process")
+    def get_track_inbox_to_be_processed():
+        documents: TrackInbox = couchdb.actions.find_documents(
             connection_string=couchdb_connection_string,
             collection=database_collections["tracks_inbox"],
             filter=to_be_processed_query
         )
-    )
 
-    # --------------------------- Set Processing Status -------------------------- #
+        if not documents:
+            raise AirflowSkipException("No tracks to process")
 
-    track_inbox_documents_processing = (
-        couchdb.patch_document
-            .partial(
-                data={"status": "processing"})
-            .expand(
-                document=track_inbox_documents)
-    )
+        for document in documents:
+            if "tasks" not in document:
+                document["tasks"] = {}
+            document["tasks"]["process_track"] = "processing"
 
-    track_inbox_documents_processing_saved = (
-        couchdb.save_document
-            .partial(
+        for document in documents:
+            couchdb.actions.save_document(
                 connection_string=couchdb_connection_string,
-                collection=database_collections["tracks_inbox"])
-            .expand(
-                document=track_inbox_documents_processing)
-    )
+                collection=database_collections["tracks_inbox"],
+                document=document
+            )
 
-    # ---------------------------- Run Processing DAG ---------------------------- #
+        return documents
+
+    # ---------------------------------------------------------------------------- #
+    #                             Run Process Track DAG                            #
+    # ---------------------------------------------------------------------------- #
 
     @task(
         task_display_name="📦 Start Processing ⤵️",
@@ -115,10 +116,16 @@ def start_processing_tracks():
             }, **kwargs
         )
 
-    started_dags = (
-        run_process_track_dag
-            .expand(track=track_inbox_documents_processing_saved)
-    )
+    # ---------------------------------------------------------------------------- #
+    #                                     Flow                                     #
+    # ---------------------------------------------------------------------------- #
 
+    (
+        (
+            tracks_to_process := get_track_inbox_to_be_processed()
+        ) >> (
+            run_process_track_dag.expand(track=tracks_to_process)
+        )
+    )
 
 start_processing_tracks()
