@@ -166,11 +166,18 @@ def batch_audio_process():
         retry_delay=timedelta(minutes=1))
     def process_audio_file(
         track: dict,
-        ssh_connection: str,
-        ssh_private_key: str,
+        vastai_access_key: str,
+        vastai_instance_id: str,
+        vastai_private_ssh_key: str,
     ):
         track_id     = track["_id"]
         track_source = track["source"]
+
+        # get ssh connection to vakshuddhi instance
+        ssh_connection = vastai.get_ssh_connection_to_instance(
+            vastai_access_key,
+            vastai_instance_id
+        )
 
         # sign urls for download and upload from/to S3 bucket
         uri_download         = sign_url("GET", track_source)
@@ -181,7 +188,7 @@ def batch_audio_process():
         ssh.actions.run_commands(
             fail_on_stderr=True,
             url=ssh_connection,
-            private_key=ssh_private_key,
+            private_key=vastai_private_ssh_key,
             timeout=60 * 15,
             commands=[
                 # download file to process
@@ -252,8 +259,9 @@ def batch_audio_process():
         ) >> (
             process_audio_file
                 .partial(
-                    ssh_connection=vakkshuddhi_instance_id,
-                    ssh_private_key=vastai_private_ssh_key)
+                    vastai_access_key=vastai_access_key,
+                    vastai_instance_id=vakkshuddhi_instance_id,
+                    vastai_private_ssh_key=vastai_private_ssh_key)
                 .expand(
                     track=tracks_to_process
                 )
