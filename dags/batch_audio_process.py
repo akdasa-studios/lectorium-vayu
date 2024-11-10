@@ -91,23 +91,23 @@ def batch_audio_process():
             }
         )
 
-        # skip if no documents to process
-        if not documents:
-            raise AirflowSkipException("No documents to process")
+        # # skip if no documents to process
+        # if not documents:
+        #     raise AirflowSkipException("No documents to process")
 
-        # set task process_audio to processing
-        for document in documents:
-            if "tasks" not in document:
-                document["tasks"] = {}
-            document["tasks"]["process_audio"] = "processing"
+        # # set task process_audio to processing
+        # for document in documents:
+        #     if "tasks" not in document:
+        #         document["tasks"] = {}
+        #     document["tasks"]["process_audio"] = "processing"
 
-        # save changes
-        for document in documents:
-            couchdb.actions.save_document(
-                connection_string=database_connection,
-                collection=database_collections["tracks_inbox"],
-                document=document
-            )
+        # # save changes
+        # for document in documents:
+        #     couchdb.actions.save_document(
+        #         connection_string=database_connection,
+        #         collection=database_collections["tracks_inbox"],
+        #         document=document
+        #     )
 
         # return documents to process
         return [
