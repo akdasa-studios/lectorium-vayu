@@ -79,41 +79,38 @@ def batch_audio_process():
         # get tracks that are ready to be processed
         documents: TrackInbox = couchdb.actions.find_documents(
             connection_string=database_connection,
-            collection=database_collections["tracks"],
+            collection=database_collections["tracks_inbox"],
             filter={
-                "audioUrl.normalized": {
-                  "$exists": True
-                }
-                # "$and": [
-                #     { "status": "ready" },  # track is ready to be processed
-                #     { "tasks.process_audio": { "$exists": False } }  # audio has not been processed
-                # ]
+                "$and": [
+                    { "status": "ready" },  # track is ready to be processed
+                    { "tasks.process_audio": { "$exists": False } }  # audio has not been processed
+                ]
             }
         )
 
-        # # skip if no documents to process
-        # if not documents:
-        #     raise AirflowSkipException("No documents to process")
+        # skip if no documents to process
+        if not documents:
+            raise AirflowSkipException("No documents to process")
 
-        # # set task process_audio to processing
-        # for document in documents:
-        #     if "tasks" not in document:
-        #         document["tasks"] = {}
-        #     document["tasks"]["process_audio"] = "processing"
+        # set task process_audio to processing
+        for document in documents:
+            if "tasks" not in document:
+                document["tasks"] = {}
+            document["tasks"]["process_audio"] = "processing"
 
-        # # save changes
-        # for document in documents:
-        #     couchdb.actions.save_document(
-        #         connection_string=database_connection,
-        #         collection=database_collections["tracks_inbox"],
-        #         document=document
-        #     )
+        # save changes
+        for document in documents:
+            couchdb.actions.save_document(
+                connection_string=database_connection,
+                collection=database_collections["tracks_inbox"],
+                document=document
+            )
 
         # return documents to process
         return [
             {
                 "_id": document["_id"],
-                "source": document["audioUrl"]["original"] #["source"],
+                "source": document["source"],
             } for document in  documents
         ]
 
@@ -166,8 +163,7 @@ def batch_audio_process():
         task_display_name="🔊 Process Audio File",
         map_index_template="{{ task.op_kwargs['track'].get('_id', 'N/A') }}",
         pool="vakshuddhi::process-audio",
-        retries=3,
-        retry_delay=timedelta(minutes=1))
+        retries=3, retry_delay=timedelta(minutes=1))
     def process_audio_file(
         track: dict,
         vastai_access_key: str,
@@ -213,20 +209,20 @@ def batch_audio_process():
             ]
         )
 
-        # # update track status to processed
-        # document: TrackInbox = couchdb.actions.get_document(
-        #     connection_string=database_connection,
-        #     collection=database_collections["tracks_inbox"],
-        #     document_id=track_id,
-        # )
+        # update track status to processed
+        document: TrackInbox = couchdb.actions.get_document(
+            connection_string=database_connection,
+            collection=database_collections["tracks_inbox"],
+            document_id=track_id,
+        )
 
-        # document["tasks"]["process_audio"] = "done"
+        document["tasks"]["process_audio"] = "done"
 
-        # couchdb.actions.save_document(
-        #     connection_string=database_connection,
-        #     collection=database_collections["tracks_inbox"],
-        #     document=document
-        # )
+        couchdb.actions.save_document(
+            connection_string=database_connection,
+            collection=database_collections["tracks_inbox"],
+            document=document
+        )
 
     # ---------------------------------------------------------------------------- #
     #                           Stop Vakshuddhi Instance                           #
