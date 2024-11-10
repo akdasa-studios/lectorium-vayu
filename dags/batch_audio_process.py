@@ -146,7 +146,7 @@ def batch_audio_process():
             instance_id=instance_id
         )
 
-        ssh.run_commands(
+        ssh.actions.run_commands(
             url=connection,
             private_key=vastai_private_ssh_key,
             commands=commands_to_configure_instance,
