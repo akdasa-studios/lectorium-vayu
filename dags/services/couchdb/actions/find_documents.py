@@ -7,7 +7,7 @@ def find_documents(
     filter: dict
 ) -> None:
     url = f"{connection_string}/{collection}/_find"
-    params = {'selector': filter}
+    params = {'selector': filter, "limit": 256}
     headers = {'Content-Type': 'application/json'}
     response = post(url, json=params, headers=headers)
     if response.status_code != 200:
