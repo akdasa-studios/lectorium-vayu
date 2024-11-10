@@ -196,9 +196,9 @@ def batch_audio_process():
 
                 # process file
                 f"cd {track_id}/in;"
-                f"ffmpeg -v quiet -stats -n -i {track_id}.mp3 {track_id}.wav",
-                f"cd {track_id};" f"resemble-enhance ./in ./out --denoise_only",
-                f"cd {track_id}/out; ffmpeg -v quiet -stats -n -i ./{track_id}.wav -filter:a 'dynaudnorm=p=0.9:s=5' ./{track_id}.mp3",
+                f"ffmpeg -v quiet -stats -n -i {track_id}.mp3 {track_id}.wav 2>&1",
+                f"cd {track_id};" f"resemble-enhance ./in ./out --denoise_only 2>&1",
+                f"cd {track_id}/out; ffmpeg -v quiet -stats -n -i ./{track_id}.wav -filter:a 'dynaudnorm=p=0.9:s=5' ./{track_id}.mp3 2>&1",
 
                 # upload original and processed files
                 f"curl -X PUT --upload-file '{track_id}/in/{track_id}.mp3' '{uri_upload_original}' --progress-bar 2>&1",
