@@ -1,20 +1,12 @@
-from random import choice
-
-from airflow.decorators import task
-
 from services.vastai.models.instance import Instance
 
 
-@task(
-    task_display_name="🚀 VastAI: Get Random Active Instance",
-    multiple_outputs=True,
-)
-def get_active_instance(
+def get_active_instances(
     instances: list[Instance],
     label: str
 ) -> Instance:
-    return choice([
+    return [
         instance
         for instance in instances
         if instance["status"] == "running" and instance["label"] == label
-    ])
+    ]

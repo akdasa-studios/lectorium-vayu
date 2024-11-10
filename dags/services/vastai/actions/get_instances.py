@@ -1,11 +1,8 @@
-from airflow.decorators import task
-
 from vastai import VastAI
 
 from services.vastai.models.instance import Instance
 
 
-@task(task_display_name="💻 VastAI: Get Instances")
 def get_instances(
     api_key: str,
 ) -> list[Instance]:

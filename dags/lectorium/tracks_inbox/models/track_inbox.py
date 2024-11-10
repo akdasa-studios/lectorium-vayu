@@ -43,3 +43,6 @@ class TrackInbox(TypedDict):
 
     # Status of the track
     status: str # new, ready, processing, done, error
+
+    # Tasks status
+    tasks: dict[str, str] | None

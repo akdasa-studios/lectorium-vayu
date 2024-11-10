@@ -1,10 +1,8 @@
 import json
 
-from airflow.decorators import task
 from vastai import VastAI
 
 
-@task(task_display_name="🚀 VastAI: Launch New Instance")
 def launch_new_instance(
     vast_api_key: str,
     query: str,

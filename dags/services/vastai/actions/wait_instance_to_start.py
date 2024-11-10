@@ -1,11 +1,8 @@
 from time import sleep
 
-from airflow.decorators import task
 from vastai import VastAI
 
 
-@task(
-    task_display_name="⏰ VastAI: Wait Instance To Start")
 def wait_instance_to_start(
     vast_api_key: str,
     instance_id: int,
