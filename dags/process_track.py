@@ -266,7 +266,8 @@ def process_track():
 
     @task(
         task_display_name="🔍 Update Search Index ⤵️",
-        map_index_template="{{ task.op_kwargs['language'] }}")
+        map_index_template="{{ task.op_kwargs['language'] }}",
+        trigger_rule="none_failed_min_one_success")
     def update_index(
         track_id: str,
         language: str,
