@@ -81,10 +81,14 @@ def batch_audio_process():
             connection_string=database_connection,
             collection=database_collections["tracks_inbox"],
             filter={
-                "$and": [
-                    { "status": "ready" },  # track is ready to be processed
-                    { "tasks.process_audio": { "$exists": False } }  # audio has not been processed
-                ]
+                "status": "done",
+                "tasks.process_audio": {
+                  "$exists": False
+                }
+                # "$and": [
+                #     { "status": "ready" },  # track is ready to be processed
+                #     { "tasks.process_audio": { "$exists": False } }  # audio has not been processed
+                # ]
             }
         )
 
@@ -162,6 +166,7 @@ def batch_audio_process():
 
     @task(
         task_display_name="🔊 Process Audio File",
+        map_index_template="{{ task.op_kwargs['track'].get('_id', 'N/A') }}",
         retries=3,
         retry_delay=timedelta(minutes=1))
     def process_audio_file(
