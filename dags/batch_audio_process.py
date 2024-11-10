@@ -66,7 +66,7 @@ def batch_audio_process():
             credentials=app_bucket_creds,
             bucket_name=app_bucket_name,
             object_key=url,
-            method=method,
+            method=method.lower(),
             expiration=60*10)
 
 
@@ -120,7 +120,8 @@ def batch_audio_process():
 
     @task(
         task_display_name="🚀 Launch Vakshuddhi Instance",
-        retries=3, retry_delay=timedelta(minutes=1))
+        retries=3, retry_delay=timedelta(minutes=1)
+        pool="vakshuddhi::process-audio")
     def launch_new_vakshuddhi_instance(
         vastai_access_key: str,
         vastai_private_ssh_key: str,
