@@ -207,6 +207,9 @@ def batch_audio_process():
                 # upload original and processed files
                 f"curl -X PUT --upload-file '{track_id}/in/{track_id}.mp3' '{uri_upload_original}' --progress-bar 2>&1",
                 f"curl -X PUT --upload-file '{track_id}/out/{track_id}.mp3' '{uri_upload_processed}' --progress-bar 2>&1",
+
+                # cleanup
+                f"rm -rf {track_id}",
             ]
         )
 
