@@ -79,11 +79,10 @@ def batch_audio_process():
         # get tracks that are ready to be processed
         documents: TrackInbox = couchdb.actions.find_documents(
             connection_string=database_connection,
-            collection=database_collections["tracks_inbox"],
+            collection=database_collections["tracks"],
             filter={
-                "status": "done",
-                "tasks.process_audio": {
-                  "$exists": False
+                "audioUrl.normalized": {
+                  "$exists": True
                 }
                 # "$and": [
                 #     { "status": "ready" },  # track is ready to be processed
@@ -114,7 +113,7 @@ def batch_audio_process():
         return [
             {
                 "_id": document["_id"],
-                "source": document["source"],
+                "source": document["audioUrl"]["original"] #["source"],
             } for document in  documents
         ]
 
@@ -124,8 +123,7 @@ def batch_audio_process():
 
     @task(
         task_display_name="🚀 Launch Vakshuddhi Instance",
-        retries=3, retry_delay=timedelta(minutes=1),
-        pool="vakshuddhi::process-audio")
+        retries=3, retry_delay=timedelta(minutes=1))
     def launch_new_vakshuddhi_instance(
         vastai_access_key: str,
         vastai_private_ssh_key: str,
@@ -167,6 +165,7 @@ def batch_audio_process():
     @task(
         task_display_name="🔊 Process Audio File",
         map_index_template="{{ task.op_kwargs['track'].get('_id', 'N/A') }}",
+        pool="vakshuddhi::process-audio",
         retries=3,
         retry_delay=timedelta(minutes=1))
     def process_audio_file(
@@ -211,20 +210,20 @@ def batch_audio_process():
             ]
         )
 
-        # update track status to processed
-        document: TrackInbox = couchdb.actions.get_document(
-            connection_string=database_connection,
-            collection=database_collections["tracks_inbox"],
-            document_id=track_id,
-        )
+        # # update track status to processed
+        # document: TrackInbox = couchdb.actions.get_document(
+        #     connection_string=database_connection,
+        #     collection=database_collections["tracks_inbox"],
+        #     document_id=track_id,
+        # )
 
-        document["tasks"]["process_audio"] = "done"
+        # document["tasks"]["process_audio"] = "done"
 
-        couchdb.actions.save_document(
-            connection_string=database_connection,
-            collection=database_collections["tracks_inbox"],
-            document=document
-        )
+        # couchdb.actions.save_document(
+        #     connection_string=database_connection,
+        #     collection=database_collections["tracks_inbox"],
+        #     document=document
+        # )
 
     # ---------------------------------------------------------------------------- #
     #                           Stop Vakshuddhi Instance                           #
