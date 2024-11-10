@@ -32,7 +32,7 @@ from lectorium.config import (
 @dag(
     dag_display_name="🔈 Audio: Batch Process",
     description="Process audio files in batch",
-    schedule=None,
+    schedule="@hourly",
     start_date=datetime(2021, 1, 1),
     catchup=False,
     tags=["lectorium", "tracks", "audio"],
@@ -91,6 +91,9 @@ def batch_audio_process():
         # skip if no documents to process
         if not documents:
             raise AirflowSkipException("No documents to process")
+
+        if len(documents) < 10:
+            raise AirflowSkipException("Not enough documents to process")
 
         # set task process_audio to processing
         for document in documents:
