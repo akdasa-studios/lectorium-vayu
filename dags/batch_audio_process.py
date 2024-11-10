@@ -120,7 +120,7 @@ def batch_audio_process():
 
     @task(
         task_display_name="🚀 Launch Vakshuddhi Instance",
-        retries=3, retry_delay=timedelta(minutes=1)
+        retries=3, retry_delay=timedelta(minutes=1),
         pool="vakshuddhi::process-audio")
     def launch_new_vakshuddhi_instance(
         vastai_access_key: str,
